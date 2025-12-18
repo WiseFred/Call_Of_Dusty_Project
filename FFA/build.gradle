@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+}
+group = 'fr.anthognie'
+version = '1.0.0'
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://maven.mohistmc.com/" }
+    maven { url 'https://repo.dmulloy2.net/repository/public/' }
+}
+
+dependencies {
+    compileOnly 'com.mohistmc:mohistdev:1.20.1'
+    compileOnly project(':Core')
+    compileOnly 'net.dmulloy2:ProtocolLib:5.4.0'
+}
+
+processResources {
+    filesMatching('plugin.yml') {
+        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [version: project.version])
+    }
+}

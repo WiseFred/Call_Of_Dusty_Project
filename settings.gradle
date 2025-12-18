@@ -1,0 +1,6 @@
+rootProject.name = 'CallOfDusty_Project'
+
+include 'Core'
+include 'FFA'
+include 'Airdrops'
+include 'Spawn'

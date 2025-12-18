@@ -1,0 +1,25 @@
+name: FFA
+version: 1.0.0
+author: anthognie
+main: fr.anthognie.FFA.Main
+
+api-version: '1.20'
+description: Gère le mode de jeu FFA pour Call of Dusty.
+depend: [ Core, ProtocolLib ]
+
+commands:
+  shop:
+    description: Ouvre le shop du mode de jeu FFA.
+  leave:
+    description: Permet de quitter le mode de jeu en cours.
+    aliases: [ spawn, lobby ]
+  editshop:
+    description: Ouvre l'éditeur du shop FFA.
+    permission: callofdusty.admin
+  addspawn:
+    description: Ajoute un point de spawn FFA à votre position.
+    permission: callofdusty.admin
+
+  ffaconfig:
+    description: Ouvre le panneau de configuration du FFA.
+    permission: callofdusty.admin

@@ -1,0 +1,13 @@
+name: Spawn
+version: 1.0.0
+author: anthognie
+main: fr.anthognie.spawn.Main
+
+api-version: '1.20'
+description: Gère les protections du spawn.
+depend: [ Core ]
+
+commands:
+  codadmin:
+    description: Ouvre le panneau d'administration principal.
+    permission: callofdusty.admin

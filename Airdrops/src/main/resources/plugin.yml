@@ -1,0 +1,17 @@
+name: Airdrops
+version: 1.0.0
+author: anthognie
+main: fr.anthognie.airdrops.Main
+
+api-version: '1.20'
+description: Gère les airdrops pour Call of Dusty.
+depend: [ Core ]
+
+commands:
+  airdrop:
+    description: Gère les airdrops (admin).
+    aliases: [ad]
+    permission: callofdusty.admin
+  airdropconfig:
+    description: Ouvre le panneau de configuration des Airdrops.
+    permission: callofdusty.admin

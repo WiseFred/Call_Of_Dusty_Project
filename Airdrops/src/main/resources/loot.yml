@@ -1,0 +1,25 @@
+# Configuration des tables de loot pour les airdrops
+#
+# Pour ajouter un kit:
+# 1. Tapez en jeu: /airdrop setchance normal <nom_du_kit> <chance>
+#    (Ex: /airdrop setchance normal kit_munitions 40)
+# 2. Tapez en jeu: /airdrop edit <nom_du_kit>
+#    (Ex: /airdrop edit kit_munitions)
+# 3. Glissez-déposez les items dans le GUI et fermez-le.
+#
+
+normal:
+  kits:
+    kit_munitions:
+      chance: 40
+    kit_ravitaillement:
+      chance: 40
+    kit_equipement:
+      chance: 20
+
+ultimate:
+  kits:
+    kit_arme_rare:
+      chance: 25
+    kit_armure_rare:
+      chance: 100

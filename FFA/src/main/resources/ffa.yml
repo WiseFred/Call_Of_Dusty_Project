@@ -1,0 +1,13 @@
+# Configuration du mode de jeu FFA
+
+spawn-locations: []
+
+game-enabled: true
+
+headshot-bonus:
+  enabled: true
+  sound-id: "cgm:sound.headshot"
+  bonus-coins: 10
+
+scoreboard:
+  enabled: true

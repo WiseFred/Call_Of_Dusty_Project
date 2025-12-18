@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+}
+group = 'fr.anthognie'
+version = '1.0.0'
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+repositories {
+    mavenCentral()
+    maven { url "https://maven.mohistmc.com/" }
+}
+dependencies {
+    compileOnly 'com.mohistmc:mohistdev:1.20.1'
+    implementation 'org.xerial:sqlite-jdbc:3.41.2.1'
+}
+processResources {
+    filesMatching('plugin.yml') {
+        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [version: project.version])
+    }
+}

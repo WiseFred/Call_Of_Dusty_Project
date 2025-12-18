@@ -1,0 +1,26 @@
+title: "§e§lCall of Dusty Shop"
+size: 54
+special-items:
+  close:
+    slot: 49
+    item: BARRIER
+    name: "§cQuitter"
+    lore:
+      - "§7Ferme le menu du shop."
+  balance:
+    slot: 48
+    item: GOLD_INGOT
+    name: "§6Votre Solde"
+    lore:
+      - "§fVous avez §e%money% coins."
+items:
+  heavymg:
+    item-path: "shop.weapons.heavy_rifle"
+    slot: 10
+    price: 500
+    name: "§bHeavy Machine Gun"
+    lore:
+      - "§7Une arme lourde et puissante."
+      - ""
+      - "§fPrix: §e%price% coins"
+      - "§aClic gauche pour acheter !"

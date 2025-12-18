@@ -1,0 +1,16 @@
+# Dossiers de build Gradle (présents dans chaque module)
+.gradle/
+build/
+*/build/
+
+# Fichiers compilés
+*.class
+*.jar
+
+# Configuration IntelliJ (pour ne pas partager tes réglages perso)
+.idea/
+*.iml
+*.iws
+
+# Mac OS (vu que tu es sur Mac)
+.DS_Store

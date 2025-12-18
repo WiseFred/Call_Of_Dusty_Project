@@ -1,0 +1,41 @@
+spawn-world: "world"
+
+protection:
+  invincible: true
+  no-hunger: true
+  no-break: true
+  no-place: true
+  no-drop: true
+  no-pickup: true
+
+force-gamemode:
+  enabled: true
+  gamemode: ADVENTURE
+
+teleport-on-join:
+  enabled: true
+  x: 0.5
+  y: 100.0
+  z: 0.5
+  pitch: 0.0
+  yaw: 0.0
+
+compass-selector:
+  item:
+    name: "§a§lSélecteur de Jeux §7(Clic Droit)"
+    lore:
+      - "§7Ouvre le menu pour choisir"
+      - "§7un mode de jeu."
+    slot: 4
+
+  gui:
+    title: "§8Sélecteur de Jeux"
+    size: 27 # 3 lignes
+
+    ffa-item:
+      item-path: "selector.ffa.grenade"
+      slot: 13 # Milieu du menu
+      name: "§c§lGun-Game FFA"
+      lore:
+        - "§7Plongez dans l'arène !"
+        - "§eClic pour rejoindre !"
