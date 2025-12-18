@@ -5,6 +5,7 @@ import fr.anthognie.spawn.Main;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -17,7 +18,9 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
-import org.bukkit.scheduler.BukkitRunnable; // <-- NOUVEL IMPORT
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class SpawnListener implements Listener {
 
@@ -26,16 +29,24 @@ public class SpawnListener implements Listener {
     private final String spawnWorldName;
     private Location spawnLocation;
     private final BuildModeManager buildModeManager;
+    private final ItemStack compassItem;
+    private final int compassSlot;
 
     public SpawnListener(Main plugin) {
         this.plugin = plugin;
         this.config = plugin.getConfig();
         this.spawnWorldName = config.getString("spawn-world", "world");
-        // On récupère le BuildModeManager (important)
         this.buildModeManager = plugin.getCore().getBuildModeManager();
+
+        // Préparation de la boussole pour le give au join
+        this.compassSlot = config.getInt("compass-selector.item.slot", 4);
+        this.compassItem = new ItemStack(Material.COMPASS);
+        ItemMeta meta = this.compassItem.getItemMeta();
+        meta.setDisplayName(config.getString("compass-selector.item.name"));
+        meta.setLore(config.getStringList("compass-selector.item.lore"));
+        this.compassItem.setItemMeta(meta);
     }
 
-    // --- TÉLÉPORTATION À LA CONNEXION (CORRIGÉE) ---
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         if (!config.getBoolean("teleport-on-join.enabled", true)) {
@@ -44,134 +55,59 @@ public class SpawnListener implements Listener {
 
         Player player = event.getPlayer();
 
-        // --- LE FIX : On retarde d'un tick ---
-        // Ça garantit que Multiverse a chargé les mondes
         new BukkitRunnable() {
             @Override
             public void run() {
-                // 1. On charge le spawn location (s'il n'est pas déjà chargé)
+                // 1. Initialisation Spawn Location
                 if (spawnLocation == null) {
                     World world = Bukkit.getWorld(spawnWorldName);
-                    if (world == null) {
-                        plugin.getLogger().warning("Le monde spawn '" + spawnWorldName + "' n'a pas pu être chargé ! Téléportation annulée.");
-                        return;
+                    if (world != null) {
+                        spawnLocation = new Location(
+                                world,
+                                config.getDouble("teleport-on-join.x"),
+                                config.getDouble("teleport-on-join.y"),
+                                config.getDouble("teleport-on-join.z"),
+                                (float) config.getDouble("teleport-on-join.yaw"),
+                                (float) config.getDouble("teleport-on-join.pitch")
+                        );
                     }
-                    spawnLocation = new Location(
-                            world,
-                            config.getDouble("teleport-on-join.x"),
-                            config.getDouble("teleport-on-join.y"),
-                            config.getDouble("teleport-on-join.z"),
-                            (float) config.getDouble("teleport-on-join.yaw"),
-                            (float) config.getDouble("teleport-on-join.pitch")
-                    );
                 }
 
-                // 2. On téléporte (Maintenant, ça marche à coup sûr)
-                player.teleport(spawnLocation);
+                if (spawnLocation != null) {
+                    // 2. Téléportation
+                    player.teleport(spawnLocation);
 
-                // 3. On applique les règles (gamemode, vie, faim)
-                applySpawnRules(player);
+                    // 3. NETTOYAGE INVENTAIRE (CORRECTION PRIORITAIRE)
+                    // Si le joueur vient de se connecter et est envoyé au spawn,
+                    // on doit s'assurer qu'il n'a pas gardé son stuff du FFA.
+                    player.getInventory().clear();
+
+                    // 4. Donner la boussole
+                    player.getInventory().setItem(compassSlot, compassItem);
+
+                    // 5. Règles de base
+                    applySpawnRules(player);
+                }
             }
-        }.runTaskLater(plugin, 1L); // 1L = 1 tick
+        }.runTaskLater(plugin, 2L); // Petit délai pour être sûr que tout est chargé
     }
 
-    // Méthode pour appliquer les règles (vie, faim, gamemode)
+    // ... (applySpawnRules, protections onDamage, onHunger... restent inchangés) ...
     private void applySpawnRules(Player player) {
         if (config.getBoolean("force-gamemode.enabled", true)) {
             try {
-                GameMode gm = GameMode.valueOf(config.getString("force-gamemode.gamemode", "ADVENTURE").toUpperCase());
-                player.setGameMode(gm);
-            } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("Gamemode invalide dans config.yml !");
-            }
+                player.setGameMode(GameMode.valueOf(config.getString("force-gamemode.gamemode", "ADVENTURE").toUpperCase()));
+            } catch (Exception e) {}
         }
-
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
         player.setFireTicks(0);
     }
-
-    // --- PROTECTIONS DIVERSES ---
-    private boolean isInSpawn(Player player) {
-        return player.getWorld().getName().equals(spawnWorldName);
-    }
-
-    @EventHandler
-    public void onDamage(EntityDamageEvent event) {
-        if (config.getBoolean("protection.invincible", true) && event.getEntity() instanceof Player) {
-            Player player = (Player) event.getEntity();
-            if (buildModeManager.isInBuildMode(player)) {
-                return;
-            }
-            if (isInSpawn(player)) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onHunger(FoodLevelChangeEvent event) {
-        if (config.getBoolean("protection.no-hunger", true) && event.getEntity() instanceof Player) {
-            Player player = (Player) event.getEntity();
-            if (buildModeManager.isInBuildMode(player)) {
-                return;
-            }
-            if (isInSpawn(player)) {
-                event.setCancelled(true);
-                event.setFoodLevel(20);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onBlockBreak(BlockBreakEvent event) {
-        Player player = event.getPlayer();
-        if (buildModeManager.isInBuildMode(player)) {
-            return;
-        }
-        if (config.getBoolean("protection.no-break", true)) {
-            if (isInSpawn(player)) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onBlockPlace(BlockPlaceEvent event) {
-        Player player = event.getPlayer();
-        if (buildModeManager.isInBuildMode(player)) {
-            return;
-        }
-        if (config.getBoolean("protection.no-place", true)) {
-            if (isInSpawn(player)) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onItemDrop(PlayerDropItemEvent event) {
-        Player player = event.getPlayer();
-        if (buildModeManager.isInBuildMode(player)) {
-            return;
-        }
-        if (config.getBoolean("protection.no-drop", true)) {
-            if (isInSpawn(player)) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onItemPickup(PlayerPickupItemEvent event) {
-        Player player = event.getPlayer();
-        if (buildModeManager.isInBuildMode(player)) {
-            return;
-        }
-        if (config.getBoolean("protection.no-pickup", true)) {
-            if (isInSpawn(player)) {
-                event.setCancelled(true);
-            }
-        }
-    }
+    private boolean isInSpawn(Player player) { return player.getWorld().getName().equals(spawnWorldName); }
+    @EventHandler public void onDamage(EntityDamageEvent event) { if(config.getBoolean("protection.invincible", true) && event.getEntity() instanceof Player && !buildModeManager.isInBuildMode((Player)event.getEntity()) && isInSpawn((Player)event.getEntity())) event.setCancelled(true); }
+    @EventHandler public void onHunger(FoodLevelChangeEvent event) { if(config.getBoolean("protection.no-hunger", true) && event.getEntity() instanceof Player && !buildModeManager.isInBuildMode((Player)event.getEntity()) && isInSpawn((Player)event.getEntity())) { event.setCancelled(true); event.setFoodLevel(20); } }
+    @EventHandler public void onBlockBreak(BlockBreakEvent event) { if(!buildModeManager.isInBuildMode(event.getPlayer()) && config.getBoolean("protection.no-break", true) && isInSpawn(event.getPlayer())) event.setCancelled(true); }
+    @EventHandler public void onBlockPlace(BlockPlaceEvent event) { if(!buildModeManager.isInBuildMode(event.getPlayer()) && config.getBoolean("protection.no-place", true) && isInSpawn(event.getPlayer())) event.setCancelled(true); }
+    @EventHandler public void onItemDrop(PlayerDropItemEvent event) { if(!buildModeManager.isInBuildMode(event.getPlayer()) && config.getBoolean("protection.no-drop", true) && isInSpawn(event.getPlayer())) event.setCancelled(true); }
+    @EventHandler public void onItemPickup(PlayerPickupItemEvent event) { if(!buildModeManager.isInBuildMode(event.getPlayer()) && config.getBoolean("protection.no-pickup", true) && isInSpawn(event.getPlayer())) event.setCancelled(true); }
 }

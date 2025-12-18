@@ -12,18 +12,12 @@ import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class FFAManager {
 
     private final Main plugin;
-    private final Location spawnLocation;
+    private final Location spawnLocation; // Spawn du monde "world"
     private final World ffaWorld;
     private final ConfigManager ffaConfigManager;
     private final List<Location> spawnPoints;
@@ -46,8 +40,11 @@ public class FFAManager {
         this.itemConfigManager = itemConfigManager;
         this.economyManager = plugin.getEconomyManager();
         this.ffaConfigManager = ffaConfigManager;
-        this.spawnLocation = new Location(org.bukkit.Bukkit.getWorld("world"), 0.5, 100, 0.5);
-        this.ffaWorld = org.bukkit.Bukkit.getWorld("ffa");
+
+        World defaultWorld = Bukkit.getWorld("world");
+        this.spawnLocation = (defaultWorld != null) ? defaultWorld.getSpawnLocation() : new Location(Bukkit.getWorlds().get(0), 0, 100, 0);
+
+        this.ffaWorld = Bukkit.getWorld("ffa");
         this.spawnPoints = ffaConfigManager.getSpawnLocations();
 
         loadKits();
@@ -58,24 +55,16 @@ public class FFAManager {
         Color camoGreen = Color.fromRGB(85, 107, 47);
         camoHelmet = new ItemStack(Material.LEATHER_HELMET);
         LeatherArmorMeta helmetMeta = (LeatherArmorMeta) camoHelmet.getItemMeta();
-        helmetMeta.setColor(camoGreen);
-        helmetMeta.setUnbreakable(true);
-        camoHelmet.setItemMeta(helmetMeta);
+        helmetMeta.setColor(camoGreen); helmetMeta.setUnbreakable(true); camoHelmet.setItemMeta(helmetMeta);
         camoChestplate = new ItemStack(Material.LEATHER_CHESTPLATE);
         LeatherArmorMeta chestMeta = (LeatherArmorMeta) camoChestplate.getItemMeta();
-        chestMeta.setColor(camoGreen);
-        chestMeta.setUnbreakable(true);
-        camoChestplate.setItemMeta(chestMeta);
+        chestMeta.setColor(camoGreen); chestMeta.setUnbreakable(true); camoChestplate.setItemMeta(chestMeta);
         camoLeggings = new ItemStack(Material.LEATHER_LEGGINGS);
         LeatherArmorMeta legsMeta = (LeatherArmorMeta) camoLeggings.getItemMeta();
-        legsMeta.setColor(camoGreen);
-        legsMeta.setUnbreakable(true);
-        camoLeggings.setItemMeta(legsMeta);
+        legsMeta.setColor(camoGreen); legsMeta.setUnbreakable(true); camoLeggings.setItemMeta(legsMeta);
         camoBoots = new ItemStack(Material.LEATHER_BOOTS);
         LeatherArmorMeta bootsMeta = (LeatherArmorMeta) camoBoots.getItemMeta();
-        bootsMeta.setColor(camoGreen);
-        bootsMeta.setUnbreakable(true);
-        camoBoots.setItemMeta(bootsMeta);
+        bootsMeta.setColor(camoGreen); bootsMeta.setUnbreakable(true); camoBoots.setItemMeta(bootsMeta);
     }
 
     public void loadKits() {
@@ -85,21 +74,25 @@ public class FFAManager {
 
     public void handlePlayerDamage(Player player) {
         UUID playerUUID = player.getUniqueId();
+
         if (regenTasks.containsKey(playerUUID)) {
             regenTasks.get(playerUUID).cancel();
             regenTasks.remove(playerUUID);
         }
+
         BukkitTask delayTask = new BukkitRunnable() {
             @Override
             public void run() {
                 startHealing(player);
             }
-        }.runTaskLater(plugin, 100L);
+        }.runTaskLater(plugin, 100L); // 5 secondes
+
         regenTasks.put(playerUUID, delayTask);
     }
 
     private void startHealing(Player player) {
         UUID playerUUID = player.getUniqueId();
+
         BukkitTask healingTask = new BukkitRunnable() {
             @Override
             public void run() {
@@ -108,14 +101,19 @@ public class FFAManager {
                     regenTasks.remove(playerUUID);
                     return;
                 }
-                if (player.getHealth() < player.getMaxHealth()) {
-                    player.setHealth(Math.min(player.getMaxHealth(), player.getHealth() + 2.0));
+
+                double maxHealth = player.getMaxHealth();
+                double currentHealth = player.getHealth();
+
+                if (currentHealth < maxHealth) {
+                    player.setHealth(Math.min(maxHealth, currentHealth + 1.0));
                 } else {
                     this.cancel();
                     regenTasks.remove(playerUUID);
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 10L); // Toutes les 0.5 secondes
+
         regenTasks.put(playerUUID, healingTask);
     }
 
@@ -126,10 +124,7 @@ public class FFAManager {
         }
     }
 
-    public boolean isInvincible(Player player) {
-        return invinciblePlayers.contains(player.getUniqueId());
-    }
-
+    public boolean isInvincible(Player player) { return invinciblePlayers.contains(player.getUniqueId()); }
     public void clearInvincibility(Player player) {
         UUID uuid = player.getUniqueId();
         invinciblePlayers.remove(uuid);
@@ -138,12 +133,10 @@ public class FFAManager {
             invincibilityTasks.remove(uuid);
         }
     }
-
     public void applySpawnProtection(Player player) {
         UUID uuid = player.getUniqueId();
         invinciblePlayers.add(uuid);
         player.sendTitle("", "§a§lProtection de spawn !", 0, 20, 10);
-
         BukkitTask task = new BukkitRunnable() {
             int ticksLived = 0;
             @Override
@@ -151,22 +144,15 @@ public class FFAManager {
                 ticksLived += 2;
                 if (!player.isOnline() || !invinciblePlayers.contains(uuid)) {
                     this.cancel();
-                    invincibilityTasks.remove(uuid);
-                    return;
+                    invincibilityTasks.remove(uuid); return;
                 }
-                if (ticksLived > 200) { // 10 secondes
+                if (ticksLived > 200) {
                     this.cancel();
-                    invincibilityTasks.remove(uuid);
-                    invinciblePlayers.remove(uuid);
-                    player.sendTitle("", "§c§lProtection terminée !", 0, 20, 10);
-                    return;
+                    invincibilityTasks.remove(uuid); invinciblePlayers.remove(uuid);
+                    player.sendTitle("", "§c§lProtection terminée !", 0, 20, 10); return;
                 }
                 if (player.getWorld().equals(ffaWorld)) {
-                    ffaWorld.spawnParticle(
-                            Particle.SMOKE_NORMAL,
-                            player.getLocation().add(0, 1, 0),
-                            10, 0.3, 0.5, 0.3, 0.01
-                    );
+                    ffaWorld.spawnParticle(Particle.SMOKE_NORMAL, player.getLocation().add(0, 1, 0), 10, 0.3, 0.5, 0.3, 0.01);
                 }
             }
         }.runTaskTimer(plugin, 0L, 2L);
@@ -174,53 +160,40 @@ public class FFAManager {
     }
 
     public void startRespawnSequence(Player player, Player killer) {
+        economyManager.clearInventory(player.getUniqueId());
+
         player.setGameMode(GameMode.SPECTATOR);
         player.setHealth(player.getMaxHealth());
         clearRegenTask(player);
         clearInvincibility(player);
-
-        if (killer != null && killer.isOnline()) {
-            player.setSpectatorTarget(killer);
-        }
+        if (killer != null && killer.isOnline()) player.setSpectatorTarget(killer);
 
         new BukkitRunnable() {
             int countdown = 5;
             @Override
             public void run() {
-                if (killer != null && !killer.isOnline()) {
-                    player.setSpectatorTarget(null);
-                }
+                if (killer != null && !killer.isOnline()) player.setSpectatorTarget(null);
                 if (countdown > 0) {
                     player.sendTitle("§cVOUS ÊTES MORT", "§fRéapparition dans §e" + countdown + "s", 0, 25, 0);
                     countdown--;
                 } else {
                     this.cancel();
                     player.setSpectatorTarget(null);
-                    respawnPlayer(player);
+                    respawnPlayer(player); // Respawn avec kit de base
                 }
             }
         }.runTaskTimer(plugin, 0L, 20L);
     }
-
-    public void startRespawnSequence(Player player) {
-        startRespawnSequence(player, null);
-    }
-
-    private Location getRandomSpawnPoint() {
-        if (spawnPoints.isEmpty()) {
-            plugin.getLogger().warning("Aucun point de spawn FFA n'est défini !");
-            return this.ffaWorld.getSpawnLocation();
-        }
-        return spawnPoints.get(random.nextInt(spawnPoints.size()));
-    }
+    public void startRespawnSequence(Player player) { startRespawnSequence(player, null); }
 
     public void respawnPlayer(Player player) {
         player.teleport(getRandomSpawnPoint());
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
-        player.setFireTicks(0);
+
         giveStarterKit(player);
+
         applySpawnProtection(player);
     }
 
@@ -230,12 +203,10 @@ public class FFAManager {
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
-        player.setFireTicks(0);
         applySpawnProtection(player);
 
         ItemStack[] savedInventory = economyManager.loadInventory(player.getUniqueId());
-
-        if (savedInventory != null) {
+        if (savedInventory != null && savedInventory.length > 0) {
             player.getInventory().setContents(savedInventory);
             economyManager.clearInventory(player.getUniqueId());
         } else {
@@ -246,67 +217,33 @@ public class FFAManager {
     public void leaveArena(Player player) {
         economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
         player.getInventory().clear();
+
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
         player.teleport(spawnLocation);
+
         clearRegenTask(player);
         clearInvincibility(player);
+
     }
 
+    private Location getRandomSpawnPoint() {
+        if (spawnPoints.isEmpty()) return this.ffaWorld.getSpawnLocation();
+        return spawnPoints.get(random.nextInt(spawnPoints.size()));
+    }
     public void giveStarterKit(Player player) {
         PlayerInventory inventory = player.getInventory();
         inventory.clear();
-
-        if (this.ffaPistol != null) {
-            inventory.addItem(this.ffaPistol.clone());
-        } else {
-            player.sendMessage("§cKit 'kits.ffa.pistol' non défini. /itemdb");
-        }
-        if (this.ffaBullets != null) {
-            inventory.addItem(this.ffaBullets.clone());
-        } else {
-            player.sendMessage("§cKit 'kits.ffa.bullets' non défini. /itemdb");
-        }
-
-        inventory.setHelmet(camoHelmet);
-        inventory.setChestplate(camoChestplate);
-        inventory.setLeggings(camoLeggings);
-        inventory.setBoots(camoBoots);
+        if (this.ffaPistol != null) inventory.addItem(this.ffaPistol.clone());
+        if (this.ffaBullets != null) inventory.addItem(this.ffaBullets.clone());
+        inventory.setHelmet(camoHelmet); inventory.setChestplate(camoChestplate);
+        inventory.setLeggings(camoLeggings); inventory.setBoots(camoBoots);
     }
-
-    public String getFFAWorldName() {
-        if (this.ffaWorld == null) {
-            return "ffa_INVALIDE";
-        }
-        return this.ffaWorld.getName();
-    }
-
-    // --- MÉTHODES HEADSHOT (QUI MANQUAIENT) ---
-
-    /**
-     * Appelé par le "sniffer" ProtocolLib quand un son de headshot est détecté.
-     * On met le tueur dans le cache pour 1/10e de seconde (2 ticks).
-     */
+    public String getFFAWorldName() { return (this.ffaWorld == null) ? "ffa" : this.ffaWorld.getName(); }
     public void recordHeadshot(Player killer) {
-        UUID uuid = killer.getUniqueId();
-        headshotCache.add(uuid);
-
-        // On le retire du cache après 2 ticks
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                headshotCache.remove(uuid);
-            }
-        }.runTaskLater(plugin, 2L); // 2 ticks, c'est très court
+        UUID uuid = killer.getUniqueId(); headshotCache.add(uuid);
+        new BukkitRunnable() { @Override public void run() { headshotCache.remove(uuid); } }.runTaskLater(plugin, 2L);
     }
-
-    /**
-     * Appelé par le PlayerDamageListener pour vérifier si le kill était un headshot.
-     * @return true si le tueur est dans le cache (s'il a fait un headshot y'a 2 ticks)
-     */
-    public boolean checkAndConsumeHeadshot(Player killer) {
-        // On vérifie et on retire (consomme) le headshot
-        return headshotCache.remove(killer.getUniqueId());
-    }
+    public boolean checkAndConsumeHeadshot(Player killer) { return headshotCache.remove(killer.getUniqueId()); }
 }

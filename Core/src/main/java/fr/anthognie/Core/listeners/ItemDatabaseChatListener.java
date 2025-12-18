@@ -1,7 +1,6 @@
 package fr.anthognie.Core.listeners;
 
 import fr.anthognie.Core.Main;
-import fr.anthognie.Core.gui.ItemDatabaseGUI;
 import fr.anthognie.Core.managers.ItemConfigManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,14 +18,12 @@ public class ItemDatabaseChatListener implements Listener {
 
     private final Main plugin;
     private final ItemConfigManager itemConfigManager;
-    private final ItemDatabaseGUI gui;
 
     private final Map<UUID, ItemStack> sessions = new HashMap<>();
 
     public ItemDatabaseChatListener(Main plugin) {
         this.plugin = plugin;
         this.itemConfigManager = plugin.getItemConfigManager();
-        this.gui = plugin.getItemDatabaseGUI();
     }
 
     public void startSession(Player player, ItemStack item) {
@@ -58,8 +55,8 @@ public class ItemDatabaseChatListener implements Listener {
             return;
         }
 
-        itemConfigManager.setItemStack(path, item);
-        itemConfigManager.saveConfig();
+        // Sauvegarde via le nouveau système
+        itemConfigManager.saveItem(path, item);
 
         player.sendMessage("§a§lSuccès ! §fItem sauvegardé sous le path:");
         player.sendMessage("§e" + path);
@@ -67,7 +64,10 @@ public class ItemDatabaseChatListener implements Listener {
         new BukkitRunnable() {
             @Override
             public void run() {
-                gui.open(player, 1);
+                // CORRECTION ICI : On utilise le getter du Main au lieu de new ItemDatabaseGUI(plugin)
+                if (plugin.getItemDatabaseGUI() != null) {
+                    plugin.getItemDatabaseGUI().open(player, 1);
+                }
             }
         }.runTaskLater(plugin, 1L);
     }
