@@ -31,9 +31,10 @@ public class ItemDatabaseGUI {
         }
 
         inv.setItem(45, createButton(Material.PAPER, "§aPage Précédente", null));
-        inv.setItem(48, createButton(Material.NETHER_STAR, "§bAjouter un Item",
-                List.of("§7Prenez un item dans votre inventaire", "§7et cliquez ici pour l'enregistrer.")));
-        inv.setItem(49, createButton(Material.BARRIER, "§cRetour", List.of("§7Retour au menu principal")));
+
+        // J'ai retiré le bouton Nether Star "Ajouter" ici pour simplifier
+
+        inv.setItem(49, createButton(Material.BARRIER, "§cFermer", List.of("§7Utilisez §e/itemdb add", "§7pour ajouter un item.")));
         inv.setItem(53, createButton(Material.PAPER, "§aPage Suivante", null));
 
         // --- Remplir avec les items ---
@@ -41,7 +42,7 @@ public class ItemDatabaseGUI {
         List<String> itemPaths = new ArrayList<>();
 
         for (String path : allPaths) {
-            if (itemConfigManager.getConfig().isItemStack(path)) {
+            if (itemConfigManager.getConfig().isString(path)) {
                 itemPaths.add(path);
             }
         }
@@ -50,11 +51,10 @@ public class ItemDatabaseGUI {
         if (page > maxPage) page = maxPage;
         if (page < 1) page = 1;
 
-        // Pagination
         int startIndex = (page - 1) * 45;
         for (int i = 0; i < 45; i++) {
             int itemIndex = startIndex + i;
-            if (itemIndex >= itemPaths.size()) break; // Plus d'items
+            if (itemIndex >= itemPaths.size()) break;
 
             String path = itemPaths.get(itemIndex);
             ItemStack item = itemConfigManager.getItemStack(path);

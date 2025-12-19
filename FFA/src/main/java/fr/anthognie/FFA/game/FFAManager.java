@@ -17,7 +17,7 @@ import java.util.*;
 public class FFAManager {
 
     private final Main plugin;
-    private final Location spawnLocation; // Spawn du monde "world"
+    private final Location spawnLocation;
     private final World ffaWorld;
     private final ConfigManager ffaConfigManager;
     private final List<Location> spawnPoints;
@@ -25,8 +25,9 @@ public class FFAManager {
 
     private final ItemConfigManager itemConfigManager;
     private final EconomyManager economyManager;
-    private ItemStack ffaPistol;
-    private ItemStack ffaBullets;
+
+    // On retire les champs "ffaPistol" et "ffaBullets" stockés en cache
+    // pour forcer la récupération dynamique.
 
     private ItemStack camoHelmet, camoChestplate, camoLeggings, camoBoots;
 
@@ -47,7 +48,7 @@ public class FFAManager {
         this.ffaWorld = Bukkit.getWorld("ffa");
         this.spawnPoints = ffaConfigManager.getSpawnLocations();
 
-        loadKits();
+        // Plus de loadKits() ici
         createCamoArmor();
     }
 
@@ -67,11 +68,7 @@ public class FFAManager {
         bootsMeta.setColor(camoGreen); bootsMeta.setUnbreakable(true); camoBoots.setItemMeta(bootsMeta);
     }
 
-    public void loadKits() {
-        this.ffaPistol = itemConfigManager.getItemStack("kits.ffa.pistol");
-        this.ffaBullets = itemConfigManager.getItemStack("kits.ffa.bullets");
-    }
-
+    // --- SYSTÈME DE RÉGÉNÉRATION COD ---
     public void handlePlayerDamage(Player player) {
         UUID playerUUID = player.getUniqueId();
 
@@ -112,7 +109,7 @@ public class FFAManager {
                     regenTasks.remove(playerUUID);
                 }
             }
-        }.runTaskTimer(plugin, 0L, 10L); // Toutes les 0.5 secondes
+        }.runTaskTimer(plugin, 0L, 10L);
 
         regenTasks.put(playerUUID, healingTask);
     }
@@ -124,6 +121,7 @@ public class FFAManager {
         }
     }
 
+    // ... (isInvincible, clearInvincibility, applySpawnProtection inchangés) ...
     public boolean isInvincible(Player player) { return invinciblePlayers.contains(player.getUniqueId()); }
     public void clearInvincibility(Player player) {
         UUID uuid = player.getUniqueId();
@@ -159,6 +157,7 @@ public class FFAManager {
         invincibilityTasks.put(uuid, task);
     }
 
+    // --- RESPAWN & DEATH ---
     public void startRespawnSequence(Player player, Player killer) {
         economyManager.clearInventory(player.getUniqueId());
 
@@ -179,7 +178,7 @@ public class FFAManager {
                 } else {
                     this.cancel();
                     player.setSpectatorTarget(null);
-                    respawnPlayer(player); // Respawn avec kit de base
+                    respawnPlayer(player);
                 }
             }
         }.runTaskTimer(plugin, 0L, 20L);
@@ -197,6 +196,7 @@ public class FFAManager {
         applySpawnProtection(player);
     }
 
+    // --- JOIN & LEAVE ---
     public void joinArena(Player player) {
         player.sendMessage("§aVous avez rejoint l'arène FFA !");
         player.teleport(getRandomSpawnPoint());
@@ -216,8 +216,8 @@ public class FFAManager {
 
     public void leaveArena(Player player) {
         economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
-        player.getInventory().clear();
 
+        player.getInventory().clear();
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
@@ -225,21 +225,28 @@ public class FFAManager {
 
         clearRegenTask(player);
         clearInvincibility(player);
-
     }
 
     private Location getRandomSpawnPoint() {
         if (spawnPoints.isEmpty()) return this.ffaWorld.getSpawnLocation();
         return spawnPoints.get(random.nextInt(spawnPoints.size()));
     }
+
     public void giveStarterKit(Player player) {
         PlayerInventory inventory = player.getInventory();
         inventory.clear();
-        if (this.ffaPistol != null) inventory.addItem(this.ffaPistol.clone());
-        if (this.ffaBullets != null) inventory.addItem(this.ffaBullets.clone());
+
+        // CORRECTION : On récupère l'item frais depuis la config
+        ItemStack pistol = itemConfigManager.getItemStack("kits.ffa.pistol");
+        ItemStack bullets = itemConfigManager.getItemStack("kits.ffa.bullets");
+
+        if (pistol != null) inventory.addItem(pistol.clone());
+        if (bullets != null) inventory.addItem(bullets.clone());
+
         inventory.setHelmet(camoHelmet); inventory.setChestplate(camoChestplate);
         inventory.setLeggings(camoLeggings); inventory.setBoots(camoBoots);
     }
+
     public String getFFAWorldName() { return (this.ffaWorld == null) ? "ffa" : this.ffaWorld.getName(); }
     public void recordHeadshot(Player killer) {
         UUID uuid = killer.getUniqueId(); headshotCache.add(uuid);

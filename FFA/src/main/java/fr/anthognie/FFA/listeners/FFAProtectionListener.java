@@ -18,32 +18,30 @@ public class FFAProtectionListener implements Listener {
 
     public FFAProtectionListener(Main plugin) {
         this.plugin = plugin;
-        // On récupère le BuildModeManager via l'instance statique du Core
         this.buildModeManager = fr.anthognie.Core.Main.getInstance().getBuildModeManager();
     }
 
-    // 1. EMPÊCHER LA FAIM DE DESCENDRE (Barre toujours pleine)
+    // 1. EMPÊCHER LA FAIM DE DESCENDRE (Correction Saturation)
     @EventHandler
     public void onHungerLoss(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof Player) {
             Player player = (Player) event.getEntity();
-            if (player.getWorld().getName().equals("ffa")) { // Vérifie le nom de ton monde
+            // Vérifie bien que le monde est "ffa"
+            if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) {
                 event.setCancelled(true);
                 player.setFoodLevel(20);
+                player.setSaturation(20f); // CRITIQUE : Empêche la barre de trembler
             }
         }
     }
 
-    // 2. EMPÊCHER LA RÉGÉNÉRATION NATURELLE (Vanilla)
-    // C'est CRUCIAL : Si la faim est à 20, Minecraft va essayer de soigner le joueur.
-    // On annule ça pour que SEUL ton système "Call of Duty" (FFAManager) soigne le joueur.
+    // 2. EMPÊCHER LA RÉGÉNÉRATION NATURELLE
     @EventHandler
     public void onVanillaRegen(EntityRegainHealthEvent event) {
         if (event.getEntity() instanceof Player) {
             Player player = (Player) event.getEntity();
-            if (player.getWorld().getName().equals("ffa")) {
-
-                // Si la raison du soin est la nourriture (SATIATED) ou la régénération naturelle (REGEN)
+            if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) {
+                // On annule si ça vient de la nourriture (SATIATED) ou regen naturelle (REGEN)
                 if (event.getRegainReason() == EntityRegainHealthEvent.RegainReason.SATIATED
                         || event.getRegainReason() == EntityRegainHealthEvent.RegainReason.REGEN) {
                     event.setCancelled(true);
@@ -52,10 +50,12 @@ public class FFAProtectionListener implements Listener {
         }
     }
 
+    // --- AUTRES PROTECTIONS ---
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        if (player.getWorld().getName().equals("ffa") && !buildModeManager.isInBuildMode(player)) {
+        if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())
+                && !buildModeManager.isInBuildMode(player)) {
             event.setCancelled(true);
         }
     }
@@ -63,7 +63,8 @@ public class FFAProtectionListener implements Listener {
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
-        if (player.getWorld().getName().equals("ffa") && !buildModeManager.isInBuildMode(player)) {
+        if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())
+                && !buildModeManager.isInBuildMode(player)) {
             event.setCancelled(true);
         }
     }
@@ -71,8 +72,8 @@ public class FFAProtectionListener implements Listener {
     @EventHandler
     public void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
-        // On empêche de jeter des items en FFA pour ne pas perdre son arme par erreur
-        if (player.getWorld().getName().equals("ffa") && !buildModeManager.isInBuildMode(player)) {
+        if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())
+                && !buildModeManager.isInBuildMode(player)) {
             event.setCancelled(true);
         }
     }

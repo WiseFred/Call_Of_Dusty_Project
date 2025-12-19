@@ -2,48 +2,35 @@ package fr.anthognie.airdrops.listeners;
 
 import fr.anthognie.airdrops.Main;
 import fr.anthognie.airdrops.managers.AirdropManager;
-import org.bukkit.entity.Player;
+import org.bukkit.Location;
+import org.bukkit.block.Chest;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.Inventory;
 
 public class AirdropPlayerListener implements Listener {
 
     private final AirdropManager airdropManager;
-    private final String ffaWorldName;
 
-    public AirdropPlayerListener(Main plugin, AirdropManager airdropManager) {
-        this.airdropManager = airdropManager;
-        this.ffaWorldName = plugin.getConfig().getString("world", "ffa");
+    public AirdropPlayerListener(Main plugin) {
+        this.airdropManager = plugin.getAirdropManager();
     }
 
     @EventHandler
-    public void onWorldChange(PlayerChangedWorldEvent event) {
-        Player player = event.getPlayer();
+    public void onInventoryClose(InventoryCloseEvent event) {
+        Inventory inv = event.getInventory();
 
-        String toWorld = player.getWorld().getName();
+        // On vérifie si l'inventaire fermé est un coffre
+        if (inv.getHolder() instanceof Chest) {
+            Chest chest = (Chest) inv.getHolder();
+            Location location = chest.getLocation();
 
-        String fromWorld = event.getFrom().getName();
-
-        if (toWorld.equals(ffaWorldName)) {
-            airdropManager.showBossBar(player);
-        } else if (fromWorld.equals(ffaWorldName)) {
-            airdropManager.hideBossBar(player);
+            // Si c'est un Airdrop actif
+            if (airdropManager.isAirdrop(location)) {
+                // On délègue la vérification au manager
+                airdropManager.checkAndHandleEmptyChest(location);
+            }
         }
-    }
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        if (player.getWorld().getName().equals(ffaWorldName)) {
-            airdropManager.showBossBar(player);
-        }
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        airdropManager.hideBossBar(event.getPlayer());
     }
 }

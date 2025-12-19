@@ -1,7 +1,7 @@
 package fr.anthognie.Core.listeners;
 
 import fr.anthognie.Core.Main;
-import fr.anthognie.Core.gui.ItemDatabaseGUI;
+import fr.anthognie.Core.managers.ItemConfigManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,53 +12,51 @@ import org.bukkit.inventory.ItemStack;
 public class ItemDatabaseListener implements Listener {
 
     private final Main plugin;
-    private final ItemDatabaseChatListener chatListener;
+    private final ItemConfigManager itemConfigManager;
 
     public ItemDatabaseListener(Main plugin) {
         this.plugin = plugin;
-        this.chatListener = plugin.getItemDatabaseChatListener();
+        this.itemConfigManager = plugin.getItemConfigManager();
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        // CORRECTION IMPORTANTE : Vérification basée sur le préfixe défini dans ItemDatabaseGUI
-        // Le titre contient le numéro de page, donc on utilise startsWith
         if (!event.getView().getTitle().startsWith("§cAdmin - DB Items")) return;
 
-        event.setCancelled(true); // Bloque tout par défaut
+        event.setCancelled(true);
 
         Player player = (Player) event.getWhoClicked();
         ItemStack clickedItem = event.getCurrentItem();
-        ItemStack cursorItem = event.getCursor();
 
-        // Gestion du bouton "Ajouter un Item" (Nether Star)
-        if (clickedItem != null && clickedItem.getType() == Material.NETHER_STAR) {
+        if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
 
-            // CAS 1 : Rien sur le curseur
-            if (cursorItem == null || cursorItem.getType() == Material.AIR) {
-                player.sendMessage("§cPrenez l'item à sauvegarder sur votre curseur (souris) PUIS cliquez sur ce bouton !");
-                return;
+        // --- GESTION SUPPRESSION (CLIC DROIT) ---
+        // On vérifie que ce n'est pas un bouton de menu (Paper, Barrier, Glass)
+        if (clickedItem.getType() != Material.PAPER &&
+                clickedItem.getType() != Material.BARRIER &&
+                clickedItem.getType() != Material.GRAY_STAINED_GLASS_PANE) {
+
+            if (event.isRightClick()) {
+                // Pour retrouver le path, on peut parser le lore qu'on a ajouté dans le GUI
+                if (clickedItem.hasItemMeta() && clickedItem.getItemMeta().hasLore()) {
+                    for (String line : clickedItem.getItemMeta().getLore()) {
+                        if (line.startsWith("§7Path: §f")) {
+                            String path = line.replace("§7Path: §f", "");
+
+                            itemConfigManager.deleteItem(path);
+                            player.sendMessage("§cItem supprimé de la base de données : " + path);
+
+                            // Rafraîchir la page
+                            plugin.getItemDatabaseGUI().open(player, 1);
+                            return;
+                        }
+                    }
+                }
             }
-
-            // CAS 2 : Item sur le curseur -> SAUVEGARDE
-            ItemStack itemToSave = cursorItem.clone();
-
-            player.closeInventory();
-
-            chatListener.startSession(player, itemToSave);
-
-            player.sendMessage("§aItem détecté ! §e" + itemToSave.getType().toString());
-            player.sendMessage("§aEntrez maintenant le chemin de sauvegarde dans le chat (ex: kits.ffa.pistol) :");
         }
 
-        // Gestion pagination (Optionnel, à ajouter si tu veux que les boutons Page Suivante/Précédente marchent)
-        if (clickedItem != null && clickedItem.getType() == Material.PAPER) {
-            if (clickedItem.getItemMeta().getDisplayName().contains("Suivante")) {
-                // Logique page suivante (récupérer page actuelle via titre et +1)
-                // plugin.getItemDatabaseGUI().open(player, page + 1);
-            } else if (clickedItem.getItemMeta().getDisplayName().contains("Précédente")) {
-                // Logique page précédente
-            }
+        if (clickedItem.getType() == Material.BARRIER) {
+            player.closeInventory();
         }
     }
 }

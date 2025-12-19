@@ -18,6 +18,7 @@ public class HeadshotSoundListener {
 
     public HeadshotSoundListener(Main plugin) {
         this.plugin = plugin;
+        // Ces appels devraient maintenant marcher car Main.java compile
         this.ffaManager = plugin.getFfaManager();
         this.headshotSoundID = plugin.getFfaConfigManager().getConfig().getString("headshot-bonus.sound-id", "cgm:sound.headshot");
 
@@ -33,13 +34,15 @@ public class HeadshotSoundListener {
                     @Override
                     public void onPacketSending(PacketEvent event) {
                         Player player = event.getPlayer();
+                        try {
+                            String soundName = event.getPacket().getSoundEffects().read(0).getKey().toString();
 
-                        String soundName = event.getPacket().getSoundEffects().read(0).getKey().toString();
-
-                        if (event.getPacket().getSoundCategories().read(0).name().equals(SoundCategory.MASTER.name()) &&
-                                soundName.equals(headshotSoundID)) {
-
-                            ffaManager.recordHeadshot(player);
+                            if (event.getPacket().getSoundCategories().read(0).name().equals(SoundCategory.MASTER.name()) &&
+                                    soundName.equals(headshotSoundID)) {
+                                ffaManager.recordHeadshot(player);
+                            }
+                        } catch (Exception e) {
+                            // Sécurité au cas où le paquet change de structure
                         }
                     }
                 }

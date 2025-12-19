@@ -2,7 +2,7 @@ package fr.anthognie.FFA.listeners;
 
 import fr.anthognie.FFA.Main;
 import fr.anthognie.FFA.gui.ShopGUI;
-import fr.anthognie.Core.managers.ItemConfigManager; // Corrigé
+import fr.anthognie.Core.managers.ItemConfigManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -13,7 +13,7 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable; // Ajout de l'import
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,7 +46,6 @@ public class ShopEditListener implements Listener {
 
         int slot = event.getSlot();
 
-        // --- CORRECTION DU BUG ---
         // On vérifie si le joueur a cliqué sur un bouton spécial
         if (slot == shopGUI.getShopConfig().getInt("special-items.close.slot") ||
                 slot == shopGUI.getShopConfig().getInt("special-items.balance.slot"))
@@ -55,9 +54,8 @@ public class ShopEditListener implements Listener {
             if (slot == shopGUI.getShopConfig().getInt("special-items.close.slot")) {
                 player.closeInventory();
             }
-            return; // On arrête tout, ce n'est pas un clic d'édition
+            return;
         }
-        // -------------------------
 
         // --- Clic Droit pour SUPPRIMER ---
         if (event.isRightClick() && clickedInv.getType() == InventoryType.CHEST) {
@@ -116,8 +114,10 @@ public class ShopEditListener implements Listener {
 
             String itemPath = "shop.item." + session.getSlot();
 
-            itemConfigManager.setItemStack(itemPath, session.getItemStack());
-            itemConfigManager.saveConfig();
+            // CORRECTION ICI : Utilisation de saveItem au lieu de setItemStack
+            itemConfigManager.saveItem(itemPath, session.getItemStack());
+            // saveConfig() est inclus dans saveItem, mais on peut le laisser par sécurité ou le retirer
+            // itemConfigManager.saveConfig();
 
             shopGUI.setShopItem(
                     "item_slot_" + session.getSlot(),

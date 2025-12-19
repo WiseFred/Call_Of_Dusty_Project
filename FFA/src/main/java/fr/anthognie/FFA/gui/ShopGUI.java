@@ -2,7 +2,7 @@ package fr.anthognie.FFA.gui;
 
 import fr.anthognie.Core.managers.EconomyManager;
 import fr.anthognie.FFA.Main;
-import fr.anthognie.Core.managers.ItemConfigManager; // MODIFIÉ
+import fr.anthognie.Core.managers.ItemConfigManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -14,7 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.File;
-import java.io.IOException; // NOUVEL IMPORT
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +24,7 @@ public class ShopGUI {
     private final EconomyManager economyManager;
     private final ItemConfigManager itemConfigManager;
 
-    private File configFile; // NOUVEAU
+    private File configFile;
     private FileConfiguration shopConfig;
     private String shopTitle;
     private int shopSize;
@@ -186,8 +186,9 @@ public class ShopGUI {
             // On supprime aussi l'item de items.yml (dans le Core)
             String itemPath = itemsSection.getString(keyToRemove + ".item-path");
             if (itemPath != null) {
-                itemConfigManager.setItemStack(itemPath, null);
-                itemConfigManager.saveConfig();
+                // CORRECTION ICI : Utilisation de deleteItem au lieu de setItemStack(..., null)
+                itemConfigManager.deleteItem(itemPath);
+                // Le saveConfig() est déjà inclus dans deleteItem, donc pas besoin de le rappeler
             }
         }
     }

@@ -14,7 +14,7 @@ public class AddSpawnCommand implements CommandExecutor {
     private final ConfigManager configManager;
 
     public AddSpawnCommand(Main plugin) {
-        this.configManager = plugin.getFfaConfigManager();
+        this.configManager = plugin.getConfigManager();
     }
 
     @Override

@@ -2,11 +2,7 @@ package fr.anthognie.FFA;
 
 import fr.anthognie.Core.managers.EconomyManager;
 import fr.anthognie.Core.managers.ItemConfigManager;
-import fr.anthognie.FFA.commands.AddSpawnCommand;
-import fr.anthognie.FFA.commands.EditShopCommand;
-import fr.anthognie.FFA.commands.FFAConfigCommand;
-import fr.anthognie.FFA.commands.LeaveCommand;
-import fr.anthognie.FFA.commands.ShopCommand;
+import fr.anthognie.FFA.commands.*;
 import fr.anthognie.FFA.game.FFAManager;
 import fr.anthognie.FFA.gui.FFAConfigGUI;
 import fr.anthognie.FFA.gui.ShopGUI;
@@ -14,8 +10,8 @@ import fr.anthognie.FFA.listeners.*;
 import fr.anthognie.FFA.managers.ConfigManager;
 import fr.anthognie.FFA.managers.KillstreakManager;
 import fr.anthognie.FFA.managers.ScoreboardManager;
-import org.bukkit.entity.Player;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class Main extends JavaPlugin {
@@ -31,6 +27,7 @@ public class Main extends JavaPlugin {
     private ScoreboardManager scoreboardManager;
     private ShopGUI shopGUI;
     private FFAConfigGUI ffaConfigGUI;
+
     private HeadshotSoundListener headshotListener;
 
     @Override
@@ -47,7 +44,6 @@ public class Main extends JavaPlugin {
         this.economyManager = corePlugin.getEconomyManager();
         this.itemConfigManager = corePlugin.getItemConfigManager();
 
-        // S'assurer que le ffa.yml est créé
         saveResource("ffa.yml", false);
 
         initializeManagers();
@@ -59,13 +55,11 @@ public class Main extends JavaPlugin {
 
     private void initializeManagers() {
         this.ffaConfigManager = new ConfigManager(this);
-        this.killstreakManager = new KillstreakManager();
+        this.killstreakManager = new KillstreakManager(this);
         this.ffaManager = new FFAManager(this, this.itemConfigManager, this.ffaConfigManager);
         this.scoreboardManager = new ScoreboardManager(this, this.killstreakManager, this.economyManager, this.ffaManager);
         this.shopGUI = new ShopGUI(this);
         this.ffaConfigGUI = new FFAConfigGUI(this);
-
-        // --- NOUVEAU : On initialise le "sniffer" de son ---
         this.headshotListener = new HeadshotSoundListener(this);
     }
 
@@ -78,7 +72,6 @@ public class Main extends JavaPlugin {
     }
 
     private void registerListeners() {
-        // Listeners Spigot (Bukkit)
         getServer().getPluginManager().registerEvents(new PlayerArenaListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerDamageListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerRegenListener(this), this);
@@ -86,33 +79,43 @@ public class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ShopEditListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(this), this);
         getServer().getPluginManager().registerEvents(new FFAConfigListener(this), this);
-        // (Le HeadshotSoundListener s'enregistre tout seul auprès de ProtocolLib)
+        getServer().getPluginManager().registerEvents(new FFAProtectionListener(this), this);
     }
 
     @Override
     public void onDisable() {
         if (ffaManager != null && ffaManager.getFFAWorldName() != null) {
             try {
-                for (Player player : Bukkit.getWorld(ffaManager.getFFAWorldName()).getPlayers()) {
-                    economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
-                    ffaManager.clearInvincibility(player);
+                if (Bukkit.getWorld(ffaManager.getFFAWorldName()) != null) {
+                    for (Player player : Bukkit.getWorld(ffaManager.getFFAWorldName()).getPlayers()) {
+                        economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
+                        ffaManager.clearInvincibility(player);
+                    }
                 }
             } catch (Exception e) {
-                // S'il n'y a pas de joueurs ou que le monde n'est pas chargé, on ignore
             }
         }
         getLogger().info("Call of Dusty [FFA] désactivé.");
     }
 
-    // ... (tous les getters) ...
     public static Main getInstance() { return instance; }
+
     public EconomyManager getEconomyManager() { return economyManager; }
-    public FFAManager getFfaManager() { return ffaManager; }
     public ItemConfigManager getItemConfigManager() { return itemConfigManager; }
+
+    // --- NOUVEAUX NOMS (Utilisés par mes fichiers récents) ---
+    public FFAManager getFfaManager() { return ffaManager; }
+    public ConfigManager getFfaConfigManager() { return ffaConfigManager; }
+
+    // --- ANCIENS NOMS (ALIAS) (Pour corriger tes erreurs AddSpawnCommand / PlayerDamageListener) ---
+    public FFAManager getFFAManager() { return ffaManager; }
+    public ConfigManager getConfigManager() { return ffaConfigManager; }
+    // -----------------------------------------------------------------------------------------------
+
     public KillstreakManager getKillstreakManager() { return killstreakManager; }
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
     public ShopGUI getShopGUI() { return shopGUI; }
-    public ConfigManager getFfaConfigManager() { return ffaConfigManager; }
     public FFAConfigGUI getFfaConfigGUI() { return ffaConfigGUI; }
+
     public fr.anthognie.Core.Main getCore() { return corePlugin; }
 }

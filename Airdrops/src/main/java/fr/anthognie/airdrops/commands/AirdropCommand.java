@@ -61,7 +61,6 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
             case "editloot":
                 handleEditLoot(sender, args);
                 break;
-            // --- NOUVELLE COMMANDE ---
             case "reset":
                 airdropManager.resetAllAirdrops();
                 sender.sendMessage("§aTous les coffres d'airdrops actifs ont été supprimés.");
@@ -83,7 +82,6 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§aForçage de la séquence d'airdrop ULTIME (5s).");
         } else {
             airdropManager.forceAirdrop(false);
-            // Le message de broadcast est géré par le manager
         }
     }
 
@@ -154,12 +152,15 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        // Supprime la configuration du kit (chance, etc.)
         lootConfig.set(path, null);
         lootManager.saveConfig();
 
+        // Supprime le contenu du kit dans items.yml via le Manager du Core
         String itemPath = "airdrops.loot." + type + "." + kitName;
-        plugin.getItemConfigManager().setItemStack(itemPath, null);
-        plugin.getItemConfigManager().saveConfig();
+
+        // CORRECTION ICI : Utilisation de deleteItem au lieu de setItemStack(null)
+        plugin.getItemConfigManager().deleteItem(itemPath);
 
         sender.sendMessage("§aKit '" + kitName + "' supprimé (items et config).");
     }
@@ -192,6 +193,7 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
         String base64data = plugin.getItemConfigManager().getConfig().getString(itemPath);
         if (base64data != null && !base64data.isEmpty()) {
             try {
+                // Utilisation du nouveau sérialiseur qui supporte les mods
                 inv.setContents(fr.anthognie.Core.utils.InventorySerializer.itemStackArrayFromBase64(base64data));
             } catch (Exception e) {
                 sender.sendMessage("§cErreur lors du chargement de ce kit. L'inventaire est peut-être corrompu.");

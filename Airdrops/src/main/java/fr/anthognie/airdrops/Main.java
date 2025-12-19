@@ -1,6 +1,5 @@
 package fr.anthognie.airdrops;
 
-
 import fr.anthognie.Core.managers.ItemConfigManager;
 import fr.anthognie.airdrops.commands.AirdropCommand;
 import fr.anthognie.airdrops.commands.AirdropConfigCommand;
@@ -14,7 +13,6 @@ import fr.anthognie.airdrops.listeners.LootEditorListener;
 import fr.anthognie.airdrops.listeners.LootKitChatListener;
 import fr.anthognie.airdrops.managers.AirdropManager;
 import fr.anthognie.airdrops.managers.LootManager;
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class Main extends JavaPlugin {
@@ -23,118 +21,87 @@ public class Main extends JavaPlugin {
     private fr.anthognie.Core.Main corePlugin;
     private ItemConfigManager itemConfigManager;
 
-    private AirdropManager airdropManager;
     private LootManager lootManager;
-    private AirdropConfigGUI airdropConfigGUI;
+    private AirdropManager airdropManager;
 
-    // Nouveaux GUIs et Listeners
+    // GUIs
+    private AirdropConfigGUI airdropConfigGUI;
     private LootBrowserGUI lootBrowserGUI;
     private LootKitListGUI lootKitListGUI;
+
+    // Listeners Chat
     private LootKitChatListener lootKitChatListener;
 
     @Override
     public void onEnable() {
         instance = this;
+        this.corePlugin = fr.anthognie.Core.Main.getInstance();
 
-        // Connexion au Core
-        this.corePlugin = (fr.anthognie.Core.Main) Bukkit.getPluginManager().getPlugin("Core");
         if (this.corePlugin == null) {
             getLogger().severe("ERREUR CRITIQUE: Core n'a pas été trouvé !");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
 
-        // Récupération des managers du Core
         this.itemConfigManager = corePlugin.getItemConfigManager();
-        if (this.itemConfigManager == null) {
-            getLogger().severe("ERREUR CRITIQUE: ItemConfigManager n'a pas été trouvé !");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
 
-        // Initialisation (configs, puis managers)
-        saveDefaultConfig(); // Sauvegarde config.yml
+        saveResource("config.yml", false);
+        saveResource("loot.yml", false);
+
         initializeManagers();
         registerCommands();
         registerListeners();
 
-        // Démarrage des timers
+        // Lancement des timers (Drops auto)
         this.airdropManager.startTimers();
 
-        getLogger().info("-------------------------------------");
-        getLogger().info("Module Airdrops activé !");
-        getLogger().info("Connecté au Core.");
-        getLogger().info("-------------------------------------");
+        getLogger().info("Call of Dusty [Airdrops] activé.");
     }
 
     private void initializeManagers() {
         this.lootManager = new LootManager(this);
-        this.airdropManager = new AirdropManager(this, this.lootManager);
-        this.airdropConfigGUI = new AirdropConfigGUI(this);
+        // CORRECTION : On utilise le constructeur qui prend juste 'Main'
+        this.airdropManager = new AirdropManager(this);
 
-        // Initialisation des nouveaux GUIs/Listeners
-        this.lootBrowserGUI = new LootBrowserGUI();
-        this.lootKitListGUI = new LootKitListGUI(this.lootManager);
+        this.airdropConfigGUI = new AirdropConfigGUI(this);
+        this.lootBrowserGUI = new LootBrowserGUI(this);
+        this.lootKitListGUI = new LootKitListGUI(this);
+
         this.lootKitChatListener = new LootKitChatListener(this);
     }
 
     private void registerCommands() {
-        AirdropCommand adminCommand = new AirdropCommand(this);
-        getCommand("airdrop").setExecutor(adminCommand);
-        getCommand("airdrop").setTabCompleter(adminCommand);
-
+        getCommand("airdrop").setExecutor(new AirdropCommand(this));
         getCommand("airdropconfig").setExecutor(new AirdropConfigCommand(this));
     }
 
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new AirdropPlayerListener(this, this.airdropManager), this);
-        getServer().getPluginManager().registerEvents(new LootEditorListener(this), this);
-        getServer().getPluginManager().registerEvents(new AirdropConfigListener(this), this);
+        // CORRECTION : On utilise le constructeur qui prend juste 'Main'
+        getServer().getPluginManager().registerEvents(new AirdropPlayerListener(this), this);
 
-        // Ajout des nouveaux listeners pour le GUI de loot
-        getServer().getPluginManager().registerEvents(new LootBrowserListener(this), this);
+        getServer().getPluginManager().registerEvents(new LootEditorListener(this), this);
         getServer().getPluginManager().registerEvents(this.lootKitChatListener, this);
+        getServer().getPluginManager().registerEvents(new AirdropConfigListener(this), this);
+        getServer().getPluginManager().registerEvents(new LootBrowserListener(this), this);
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("Module Airdrops désactivé.");
         if (airdropManager != null) {
-            airdropManager.cancelAllTimers(); // Arrête tous les timers proprement
+            airdropManager.cancelAllTimers(); // Arrête les timers proprement
+            airdropManager.resetAllAirdrops(); // Supprime les coffres physiques
         }
+        getLogger().info("Call of Dusty [Airdrops] désactivé.");
     }
 
-    // --- Getters ---
+    public static Main getInstance() { return instance; }
+    public LootManager getLootManager() { return lootManager; }
+    public AirdropManager getAirdropManager() { return airdropManager; }
+    public ItemConfigManager getItemConfigManager() { return itemConfigManager; }
 
-    public static Main getInstance() {
-        return instance;
-    }
+    public AirdropConfigGUI getAirdropConfigGUI() { return airdropConfigGUI; }
+    public LootBrowserGUI getLootBrowserGUI() { return lootBrowserGUI; }
+    public LootKitListGUI getLootKitListGUI() { return lootKitListGUI; }
 
-    public ItemConfigManager getItemConfigManager() {
-        return itemConfigManager;
-    }
-
-    public AirdropManager getAirdropManager() {
-        return airdropManager;
-    }
-
-    public LootManager getLootManager() {
-        return lootManager;
-    }
-
-    public AirdropConfigGUI getAirdropConfigGUI() {
-        return airdropConfigGUI;
-    }
-
-    public LootBrowserGUI getLootBrowserGUI() {
-        return lootBrowserGUI;
-    }
-
-    public LootKitListGUI getLootKitListGUI() {
-        return lootKitListGUI;
-    }
-
-    public LootKitChatListener getLootKitChatListener() {
-        return lootKitChatListener;
-    }
+    public LootKitChatListener getLootKitChatListener() { return lootKitChatListener; }
 }
