@@ -9,6 +9,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -26,15 +28,14 @@ public class FFAManager {
     private final ItemConfigManager itemConfigManager;
     private final EconomyManager economyManager;
 
-    // On retire les champs "ffaPistol" et "ffaBullets" stockés en cache
-    // pour forcer la récupération dynamique.
-
     private ItemStack camoHelmet, camoChestplate, camoLeggings, camoBoots;
 
     private final Map<UUID, BukkitTask> regenTasks = new HashMap<>();
     private final Set<UUID> invinciblePlayers = new HashSet<>();
     private final Map<UUID, BukkitTask> invincibilityTasks = new HashMap<>();
-    private final Set<UUID> headshotCache = new HashSet<>();
+
+    // Tâche pour forcer la nourriture
+    private BukkitTask foodTask;
 
     public FFAManager(Main plugin, ItemConfigManager itemConfigManager, ConfigManager ffaConfigManager) {
         this.plugin = plugin;
@@ -48,8 +49,24 @@ public class FFAManager {
         this.ffaWorld = Bukkit.getWorld("ffa");
         this.spawnPoints = ffaConfigManager.getSpawnLocations();
 
-        // Plus de loadKits() ici
         createCamoArmor();
+        startFoodTask();
+    }
+
+    private void startFoodTask() {
+        foodTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (ffaWorld == null) return;
+                for (Player p : ffaWorld.getPlayers()) {
+                    if (p.getFoodLevel() < 20 || p.getSaturation() < 20) {
+                        p.setFoodLevel(20);
+                        p.setSaturation(20f);
+                        p.setExhaustion(0f);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
     private void createCamoArmor() {
@@ -68,28 +85,24 @@ public class FFAManager {
         bootsMeta.setColor(camoGreen); bootsMeta.setUnbreakable(true); camoBoots.setItemMeta(bootsMeta);
     }
 
-    // --- SYSTÈME DE RÉGÉNÉRATION COD ---
+    // --- REGEN COD ---
     public void handlePlayerDamage(Player player) {
         UUID playerUUID = player.getUniqueId();
-
         if (regenTasks.containsKey(playerUUID)) {
             regenTasks.get(playerUUID).cancel();
             regenTasks.remove(playerUUID);
         }
-
         BukkitTask delayTask = new BukkitRunnable() {
             @Override
             public void run() {
                 startHealing(player);
             }
         }.runTaskLater(plugin, 100L); // 5 secondes
-
         regenTasks.put(playerUUID, delayTask);
     }
 
     private void startHealing(Player player) {
         UUID playerUUID = player.getUniqueId();
-
         BukkitTask healingTask = new BukkitRunnable() {
             @Override
             public void run() {
@@ -98,10 +111,8 @@ public class FFAManager {
                     regenTasks.remove(playerUUID);
                     return;
                 }
-
                 double maxHealth = player.getMaxHealth();
                 double currentHealth = player.getHealth();
-
                 if (currentHealth < maxHealth) {
                     player.setHealth(Math.min(maxHealth, currentHealth + 1.0));
                 } else {
@@ -110,7 +121,6 @@ public class FFAManager {
                 }
             }
         }.runTaskTimer(plugin, 0L, 10L);
-
         regenTasks.put(playerUUID, healingTask);
     }
 
@@ -121,8 +131,9 @@ public class FFAManager {
         }
     }
 
-    // ... (isInvincible, clearInvincibility, applySpawnProtection inchangés) ...
+    // --- INVINCIBILITÉ ---
     public boolean isInvincible(Player player) { return invinciblePlayers.contains(player.getUniqueId()); }
+
     public void clearInvincibility(Player player) {
         UUID uuid = player.getUniqueId();
         invinciblePlayers.remove(uuid);
@@ -131,6 +142,7 @@ public class FFAManager {
             invincibilityTasks.remove(uuid);
         }
     }
+
     public void applySpawnProtection(Player player) {
         UUID uuid = player.getUniqueId();
         invinciblePlayers.add(uuid);
@@ -160,12 +172,13 @@ public class FFAManager {
     // --- RESPAWN & DEATH ---
     public void startRespawnSequence(Player player, Player killer) {
         economyManager.clearInventory(player.getUniqueId());
-
         player.setGameMode(GameMode.SPECTATOR);
         player.setHealth(player.getMaxHealth());
         clearRegenTask(player);
         clearInvincibility(player);
         if (killer != null && killer.isOnline()) player.setSpectatorTarget(killer);
+
+        player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 120, 1, false, false, false));
 
         new BukkitRunnable() {
             int countdown = 5;
@@ -178,6 +191,7 @@ public class FFAManager {
                 } else {
                     this.cancel();
                     player.setSpectatorTarget(null);
+                    player.removePotionEffect(PotionEffectType.BLINDNESS);
                     respawnPlayer(player);
                 }
             }
@@ -190,13 +204,10 @@ public class FFAManager {
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
-
         giveStarterKit(player);
-
         applySpawnProtection(player);
     }
 
-    // --- JOIN & LEAVE ---
     public void joinArena(Player player) {
         player.sendMessage("§aVous avez rejoint l'arène FFA !");
         player.teleport(getRandomSpawnPoint());
@@ -216,13 +227,12 @@ public class FFAManager {
 
     public void leaveArena(Player player) {
         economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
-
         player.getInventory().clear();
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
+        player.removePotionEffect(PotionEffectType.BLINDNESS);
         player.teleport(spawnLocation);
-
         clearRegenTask(player);
         clearInvincibility(player);
     }
@@ -236,7 +246,6 @@ public class FFAManager {
         PlayerInventory inventory = player.getInventory();
         inventory.clear();
 
-        // CORRECTION : On récupère l'item frais depuis la config
         ItemStack pistol = itemConfigManager.getItemStack("kits.ffa.pistol");
         ItemStack bullets = itemConfigManager.getItemStack("kits.ffa.bullets");
 
@@ -248,9 +257,4 @@ public class FFAManager {
     }
 
     public String getFFAWorldName() { return (this.ffaWorld == null) ? "ffa" : this.ffaWorld.getName(); }
-    public void recordHeadshot(Player killer) {
-        UUID uuid = killer.getUniqueId(); headshotCache.add(uuid);
-        new BukkitRunnable() { @Override public void run() { headshotCache.remove(uuid); } }.runTaskLater(plugin, 2L);
-    }
-    public boolean checkAndConsumeHeadshot(Player killer) { return headshotCache.remove(killer.getUniqueId()); }
 }

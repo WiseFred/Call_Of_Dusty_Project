@@ -20,13 +20,11 @@ public class PlayerRegenListener implements Listener {
     public void onFoodLevelChange(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof Player) {
             Player player = (Player) event.getEntity();
-
-            // Si on est dans le monde FFA
             if (player.getWorld().getName().equals(ffaManager.getFFAWorldName())) {
-                event.setCancelled(true); // Empêche le changement
-                player.setFoodLevel(20);  // Nourriture max
-                player.setSaturation(20f); // Saturation max (CRITIQUE : Empêche la barre de descendre visuellement)
-                player.setExhaustion(0f); // Empêche l'épuisement par la course
+                event.setCancelled(true);
+                player.setFoodLevel(20);
+                player.setSaturation(20f);  // Empêche la barre de bouger visuellement
+                player.setExhaustion(0f);   // Empêche la consommation due à la course
             }
         }
     }
@@ -35,9 +33,8 @@ public class PlayerRegenListener implements Listener {
     public void onHealthRegen(EntityRegainHealthEvent event) {
         if (event.getEntity() instanceof Player) {
             Player player = (Player) event.getEntity();
-
             if (player.getWorld().getName().equals(ffaManager.getFFAWorldName())) {
-                // On bloque la régénération naturelle (C'est ton script CoD qui gère la vie)
+                // On annule la regen naturelle pour laisser le système CoD gérer
                 if (event.getRegainReason() == EntityRegainHealthEvent.RegainReason.SATIATED
                         || event.getRegainReason() == EntityRegainHealthEvent.RegainReason.REGEN) {
                     event.setCancelled(true);
