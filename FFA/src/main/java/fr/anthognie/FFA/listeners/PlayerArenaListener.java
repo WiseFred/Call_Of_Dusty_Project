@@ -1,48 +1,53 @@
 package fr.anthognie.FFA.listeners;
 
 import fr.anthognie.FFA.Main;
-import fr.anthognie.FFA.game.FFAManager;
-import fr.anthognie.FFA.managers.ScoreboardManager;
-import org.bukkit.Bukkit; // NOUVEL IMPORT
-import org.bukkit.Location; // NOUVEL IMPORT
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.entity.Player;
 
 public class PlayerArenaListener implements Listener {
 
-    private final Main plugin; // NOUVEAU
-    private final FFAManager ffaManager;
-    private final ScoreboardManager scoreboardManager;
+    private final Main plugin;
 
     public PlayerArenaListener(Main plugin) {
-        this.plugin = plugin; // MODIFIÉ
-        this.ffaManager = plugin.getFfaManager();
-        this.scoreboardManager = plugin.getScoreboardManager();
+        this.plugin = plugin;
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        event.setJoinMessage(null);
+        Player player = event.getPlayer();
+
+        player.setLevel(0);
+        player.setExp(0);
+
+        plugin.getScoreboardManager().setScoreboard(player);
     }
 
     @EventHandler
     public void onWorldChange(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
-        String ffaWorldName = ffaManager.getFFAWorldName();
-        String newWorldName = player.getWorld().getName();
-        String fromWorldName = event.getFrom().getName();
+        String toWorld = player.getWorld().getName();
+        String ffaWorld = plugin.getFfaManager().getFFAWorldName();
 
-        if (newWorldName.equals(ffaWorldName) && !fromWorldName.equals(ffaWorldName)) {
+        plugin.getScoreboardManager().setScoreboard(player);
 
-            if (!plugin.getFfaConfigManager().getConfig().getBoolean("game-enabled", true) && !player.isOp()) {
-                player.sendMessage("§cLe mode de jeu FFA est actuellement désactivé.");
-                // On le renvoie au spawn
-                Location spawn = new Location(Bukkit.getWorld("world"), 0.5, 100.0, 0.5);
-                player.teleport(spawn);
-                return;
-            }
-            // -----------------------------
+        if (toWorld.equals(ffaWorld)) {
+            plugin.getLevelManager().updateXpBar(player);
+        } else {
+            plugin.getLevelManager().resetXpBar(player);
+        }
+    }
 
-            // Le joueur ENTRE dans l'arène
-            ffaManager.joinArena(player);
-            scoreboardManager.setPlayerScoreboard(player);
+    @EventHandler
+    public void onChat(AsyncPlayerChatEvent event) {
+        Player player = event.getPlayer();
+        if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) {
+            String prefix = plugin.getLevelManager().getChatPrefix(player);
+            event.setFormat(prefix + event.getFormat());
         }
     }
 }

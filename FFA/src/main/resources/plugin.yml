@@ -19,7 +19,16 @@ commands:
   addspawn:
     description: Ajoute un point de spawn FFA à votre position.
     permission: callofdusty.admin
-
   ffaconfig:
     description: Ouvre le panneau de configuration du FFA.
     permission: callofdusty.admin
+  resetkills:
+    description: Reset les kills d'un joueur
+    permission: ffa.admin
+  stats:
+    description: Voir ses statistiques et sa progression
+    usage: /stats [joueur]
+  xp:
+    description: Gérer l'XP des joueurs
+    usage: /xp <mode> <give|take|set|reset> <joueur> [montant]
+    permission: ffa.admin
