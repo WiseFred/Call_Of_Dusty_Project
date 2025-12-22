@@ -7,52 +7,63 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 public class AirdropConfigGUI {
 
-    public static final String GUI_TITLE = "§cAdmin §8» §6Airdrops";
-
+    // CORRECTION : Renommé de TITLE à GUI_TITLE pour correspondre au Listener
+    public static final String GUI_TITLE = "§8Gestion des Airdrops";
     private final Main plugin;
-    private final AirdropManager airdropManager;
 
     public AirdropConfigGUI(Main plugin) {
         this.plugin = plugin;
-        this.airdropManager = plugin.getAirdropManager();
+    }
+
+    // Constructeur sans argument pour compatibilité si nécessaire
+    public AirdropConfigGUI() {
+        this.plugin = Main.getInstance();
     }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 45, GUI_TITLE);
+        Inventory inv = Bukkit.createInventory(null, 27, GUI_TITLE);
+        AirdropManager manager = plugin.getAirdropManager();
 
-        // --- NORMAL ---
-        boolean normalEnabled = airdropManager.areDropsEnabled(false);
-        String normalStatus = normalEnabled ? "§aActivés" : "§cDésactivés";
-        Material normalMat = normalEnabled ? Material.LIME_DYE : Material.GRAY_DYE;
+        boolean normalOn = manager.areDropsEnabled(false);
+        boolean ultimateOn = manager.areDropsEnabled(true);
 
-        inv.setItem(11, ItemBuilder.create(normalMat, "§eDrops Normaux: " + normalStatus,
-                "§7Clic pour changer l'état"));
+        // État Normal
+        inv.setItem(10, ItemBuilder.create(Material.CHEST,
+                "§eAirdrops Normaux",
+                "§7État: " + (normalOn ? "§aACTIVÉ" : "§cDÉSACTIVÉ"),
+                "§7Clic pour basculer"
+        ));
 
-        inv.setItem(13, ItemBuilder.create(Material.CHEST, "§eForcer Drop Normal",
-                "§7Fait apparaître un drop", "§7normal immédiatement."));
+        // État Ultime
+        inv.setItem(12, ItemBuilder.create(Material.ENDER_CHEST,
+                "§5Airdrops Ultimes",
+                "§7État: " + (ultimateOn ? "§aACTIVÉ" : "§cDÉSACTIVÉ"),
+                "§7Clic pour basculer"
+        ));
 
+        // Forcer Drop
+        inv.setItem(14, ItemBuilder.create(Material.TRIPWIRE_HOOK,
+                "§6Forcer un Airdrop",
+                "§7Clic Gauche: §eNormal",
+                "§7Clic Droit: §5Ultime"
+        ));
 
-        // --- ULTIMATE ---
-        boolean ultEnabled = airdropManager.areDropsEnabled(true);
-        String ultStatus = ultEnabled ? "§aActivés" : "§cDésactivés";
-        Material ultMat = ultEnabled ? Material.ORANGE_DYE : Material.GRAY_DYE;
+        // Gérer les Loots
+        inv.setItem(16, ItemBuilder.create(Material.BOOK,
+                "§bGérer les Loots",
+                "§7Modifier les kits et items",
+                "§7contenus dans les airdrops"
+        ));
 
-        inv.setItem(15, ItemBuilder.create(Material.ENDER_CHEST, "§6Forcer Drop Ultime",
-                "§7Fait apparaître un drop", "§7ultime immédiatement."));
-
-        inv.setItem(17, ItemBuilder.create(ultMat, "§6Drops Ultimes: " + ultStatus,
-                "§7Clic pour changer l'état"));
-
-
-        // --- GESTION LOOTS ---
-        inv.setItem(31, ItemBuilder.create(Material.WRITABLE_BOOK, "§aGérer les Loots",
-                "§7Modifier le contenu", "§7des coffres."));
-
-        // Bouton Retour
-        inv.setItem(40, ItemBuilder.create(Material.ARROW, "§7Retour", "§7Retour au menu principal"));
+        // Vitres
+        ItemStack filler = ItemBuilder.create(Material.GRAY_STAINED_GLASS_PANE, " ");
+        for (int i = 0; i < inv.getSize(); i++) {
+            if (inv.getItem(i) == null) inv.setItem(i, filler);
+        }
 
         player.openInventory(inv);
     }

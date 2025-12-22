@@ -7,7 +7,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.ItemStack;
 
 public class AdminDashboardListener implements Listener {
 
@@ -18,51 +17,38 @@ public class AdminDashboardListener implements Listener {
     }
 
     @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
-        String title = event.getView().getTitle();
-
-        // Vérification stricte du titre
-        if (!title.equals(AdminDashboardGUI.GUI_TITLE)) {
-            return;
-        }
+    public void onClick(InventoryClickEvent event) {
+        // VÉRIFICATION DU TITRE EXACT
+        if (!event.getView().getTitle().equals(AdminDashboardGUI.GUI_TITLE)) return;
 
         event.setCancelled(true);
+        if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) return;
+
         Player player = (Player) event.getWhoClicked();
-        ItemStack clickedItem = event.getCurrentItem();
+        int slot = event.getSlot();
 
-        if (clickedItem == null || clickedItem.getType() == Material.AIR) {
-            return;
-        }
-
-        switch (event.getSlot()) {
-            case 10: // Gérer le Spawn
-                // Ouvre le menu de config spawn
+        switch (slot) {
+            case 10: // Gérer Spawn
+                player.closeInventory();
                 plugin.getSpawnConfigGUI().open(player);
                 break;
-
-            case 12: // Gérer le FFA
+            case 12: // Gérer FFA
                 player.closeInventory();
-                // Exécute la commande définie dans FFA
-                player.performCommand("ffaconfig");
+                player.performCommand("ffaconfig"); // Commande du module FFA
                 break;
-
-            case 14: // Gérer les Airdrops
+            case 14: // Gérer Airdrops
                 player.closeInventory();
-                // Exécute la commande définie dans Airdrops
-                player.performCommand("airdropconfig");
+                player.performCommand("airdropconfig"); // Commande du module Airdrops
                 break;
-
-            case 16: // Gérer la DB d'items
+            case 16: // ItemDB
                 player.closeInventory();
                 player.performCommand("itemdb");
                 break;
-
-            case 26: // Mode Build
+            case 26: // BuildMode
                 player.closeInventory();
                 player.performCommand("buildmode");
                 break;
-
-            case 31: // Quitter
+            case 31: // Fermer
                 player.closeInventory();
                 break;
         }

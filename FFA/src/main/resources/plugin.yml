@@ -5,7 +5,7 @@ main: fr.anthognie.FFA.Main
 
 api-version: '1.20'
 description: Gère le mode de jeu FFA pour Call of Dusty.
-depend: [ Core, ProtocolLib ]
+depend: [ Core ]
 
 commands:
   shop:
@@ -32,3 +32,11 @@ commands:
     description: Gérer l'XP des joueurs
     usage: /xp <mode> <give|take|set|reset> <joueur> [montant]
     permission: ffa.admin
+  joinffa:
+    description: Rejoindre le FFA
+  nuke:
+    description: Lancer une Nuke (Admin)
+    permission: ffa.admin
+  screamer:
+    description: ??? (force à vous)
+    permission: callofdusty.secret

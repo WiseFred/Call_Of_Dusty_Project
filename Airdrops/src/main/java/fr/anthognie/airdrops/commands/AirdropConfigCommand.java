@@ -16,8 +16,28 @@ public class AirdropConfigCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (sender instanceof Player && sender.isOp()) {
-            plugin.getAirdropConfigGUI().open((Player) sender);
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cSeul un joueur peut utiliser cette commande.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        // Vérification Permission
+        if (!player.hasPermission("callofdusty.admin") && !player.isOp()) {
+            player.sendMessage("§cVous n'avez pas la permission (callofdusty.admin).");
+            return true;
+        }
+
+        try {
+            if (plugin.getAirdropConfigGUI() == null) {
+                player.sendMessage("§cErreur: Le GUI n'est pas initialisé !");
+                return true;
+            }
+            plugin.getAirdropConfigGUI().open(player);
+        } catch (Exception e) {
+            player.sendMessage("§cUne erreur est survenue lors de l'ouverture du menu.");
+            e.printStackTrace();
         }
         return true;
     }

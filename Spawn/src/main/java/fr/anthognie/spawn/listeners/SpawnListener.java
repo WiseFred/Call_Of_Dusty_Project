@@ -9,11 +9,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityRegainHealthEvent; // IMPORT
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class SpawnListener implements Listener {
 
@@ -25,21 +27,34 @@ public class SpawnListener implements Listener {
         this.buildModeManager = plugin.getCore().getBuildModeManager();
     }
 
-    // --- NOURRITURE BLOQUÉE (GLOBAL) ---
+    // --- NOURRITURE BLOQUÉE & REGEN VANILLA DÉSACTIVÉE ---
+
     @EventHandler
     public void onFoodChange(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof Player) {
-            // On annule TOUTE modification de la barre de faim (baisse ou hausse)
             event.setCancelled(true);
-            // On force la barre à fond pour permettre le sprint
-            ((Player) event.getEntity()).setFoodLevel(20);
+            Player player = (Player) event.getEntity();
+            player.setFoodLevel(20);
+            player.setSaturation(20f);
+        }
+    }
+
+    // NOUVEAU : On bloque la régénération naturelle (liée à la saturation)
+    // Pour que seule la régénération Custom (CoD) fonctionne.
+    @EventHandler
+    public void onRegen(EntityRegainHealthEvent event) {
+        if (event.getEntity() instanceof Player) {
+            // Si la raison est la nourriture (SATIATED) ou la regen naturelle (REGEN)
+            if (event.getRegainReason() == EntityRegainHealthEvent.RegainReason.SATIATED
+                    || event.getRegainReason() == EntityRegainHealthEvent.RegainReason.REGEN) {
+                event.setCancelled(true);
+            }
         }
     }
 
     // --- PROTECTION ARMES (CGM) ---
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent event) {
-        // Empêche les balles de casser des blocs (vitres, fleurs...)
         if (event.getHitBlock() != null) {
             if (event.getEntity().getShooter() instanceof Player) {
                 Player shooter = (Player) event.getEntity().getShooter();
@@ -83,11 +98,33 @@ public class SpawnListener implements Listener {
         }
     }
 
+    // --- GESTION CONNEXION & RESPAWN ---
+
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        event.getPlayer().setFoodLevel(20); // Force la bouffe à la connexion
-        if (!event.getPlayer().hasPlayedBefore() && plugin.getConfig().contains("spawn.location")) {
-            event.getPlayer().teleport(plugin.getConfig().getLocation("spawn.location"));
+        Player p = event.getPlayer();
+        p.setFoodLevel(20);
+        p.setSaturation(20f);
+
+        // CORRECTION : On vide l'inventaire pour ne pas garder le kit FFA au spawn
+        p.getInventory().clear();
+
+        if (plugin.getConfig().contains("spawn.location")) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (p.isOnline()) {
+                        p.teleport(plugin.getConfig().getLocation("spawn.location"));
+                    }
+                }
+            }.runTaskLater(plugin, 2L);
+        }
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        if (plugin.getConfig().contains("spawn.location")) {
+            event.setRespawnLocation(plugin.getConfig().getLocation("spawn.location"));
         }
     }
 }

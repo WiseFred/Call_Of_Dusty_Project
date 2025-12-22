@@ -8,7 +8,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
 
 public class LeaveCommand implements CommandExecutor {
 
@@ -23,21 +22,17 @@ public class LeaveCommand implements CommandExecutor {
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cCette commande est réservée aux joueurs.");
-            return true;
-        }
-
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) return true;
         Player player = (Player) sender;
 
-        if (!player.getWorld().getName().equals(ffaManager.getFFAWorldName())) {
-            player.sendMessage("§cVous n'êtes pas dans l'arène FFA.");
-            return true;
-        }
+        player.sendMessage("§cExfiltration en cours...");
 
-        scoreboardManager.removePlayerScoreboard(player);
-        killstreakManager.clearPlayer(player);
+        // On force le nettoyage, même si ça échoue (try/catch silencieux)
+        try { scoreboardManager.removePlayerScoreboard(player); } catch (Exception e) {}
+        try { killstreakManager.clearPlayer(player); } catch (Exception e) {}
+
+        // La méthode leaveArena gère la téléportation au Hub et le restore d'inventaire
         ffaManager.leaveArena(player);
         return true;
     }

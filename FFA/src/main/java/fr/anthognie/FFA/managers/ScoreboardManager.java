@@ -4,15 +4,14 @@ import fr.anthognie.Core.managers.EconomyManager;
 import fr.anthognie.FFA.Main;
 import fr.anthognie.FFA.game.FFAManager;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+import org.bukkit.Statistic;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.text.DecimalFormat;
+import java.util.*;
 
 public class ScoreboardManager {
 
@@ -20,217 +19,139 @@ public class ScoreboardManager {
     private final KillstreakManager killstreakManager;
     private final EconomyManager economyManager;
     private final FFAManager ffaManager;
+    private final Map<UUID, Scoreboard> boards = new HashMap<>();
+    private final DecimalFormat ratioFormat = new DecimalFormat("#.##");
 
-    private final Map<UUID, BukkitTask> tasks = new HashMap<>();
-    private final Map<UUID, String> lastKillers = new HashMap<>();
-    private final Map<UUID, String> lastVictims = new HashMap<>();
-
-    public ScoreboardManager(Main plugin, KillstreakManager killstreakManager, EconomyManager economyManager, FFAManager ffaManager) {
+    public ScoreboardManager(Main plugin, KillstreakManager ks, EconomyManager eco, FFAManager ffa) {
         this.plugin = plugin;
-        this.killstreakManager = killstreakManager;
-        this.economyManager = economyManager;
-        this.ffaManager = ffaManager;
+        this.killstreakManager = ks;
+        this.economyManager = eco;
+        this.ffaManager = ffa;
+        startUpdater();
     }
 
-    public void recordKill(Player killer, Player victim) {
-        lastVictims.put(killer.getUniqueId(), victim.getName());
-        lastKillers.put(victim.getUniqueId(), killer.getName());
-    }
-
+    // CORRECTION: La méthode s'appelle bien setScoreboard pour correspondre au Listener
     public void setScoreboard(Player player) {
-        removePlayerScoreboard(player);
-
-        boolean inFFA = player.getWorld().getName().equals(ffaManager.getFFAWorldName());
-
         Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
-        Objective obj = board.registerNewObjective("cod_board", "dummy", "§e§lCALL OF DUSTY");
+        Objective obj = board.registerNewObjective("cod_board", Criteria.DUMMY, "§6§lCALL OF DUSTY");
         obj.setDisplaySlot(DisplaySlot.SIDEBAR);
 
-        if (inFFA) {
-            setupFFABoard(board, obj, player);
-        } else {
-            setupSpawnBoard(board, obj, player);
-        }
-
-        // On passe 'inFFA' pour savoir si on doit cacher les pseudos
-        updateNametags(board, inFFA);
-
         player.setScoreboard(board);
-        startUpdater(player);
-    }
+        boards.put(player.getUniqueId(), board);
 
-    // Met à jour les équipes sur un scoreboard spécifique
-    public void updateNametags(Scoreboard board, boolean hideNames) {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            String teamName = p.getName();
-            Team team = board.getTeam(teamName);
-            if (team == null) {
-                team = board.registerNewTeam(teamName);
-            }
-
-            // --- GESTION DE LA VISIBILITÉ ---
-            if (hideNames) {
-                // En FFA : On cache le pseudo au-dessus de la tête
-                // Mais le préfixe restera visible dans la TABLIST
-                team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-            } else {
-                // Au Spawn : On affiche tout
-                team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
-            }
-
-            String prefix = plugin.getLevelManager().getChatPrefix(p);
-            team.setPrefix(prefix);
-
-            if (!team.hasEntry(p.getName())) {
-                team.addEntry(p.getName());
-            }
-        }
-    }
-
-    // Met à jour le tag d'un joueur cible sur TOUS les scoreboards (ex: lors d'un Level Up)
-    public void refreshTagForEveryone(Player target) {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.getScoreboard() != null) {
-                Scoreboard board = p.getScoreboard();
-                String teamName = target.getName();
-                Team team = board.getTeam(teamName);
-                if (team == null) {
-                    team = board.registerNewTeam(teamName);
-                }
-
-                // On vérifie si LE JOUEUR QUI REGARDE (p) est en FFA
-                boolean viewerInFFA = p.getWorld().getName().equals(ffaManager.getFFAWorldName());
-
-                if (viewerInFFA) {
-                    team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-                } else {
-                    team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
-                }
-
-                String prefix = plugin.getLevelManager().getChatPrefix(target);
-                team.setPrefix(prefix);
-
-                if (!team.hasEntry(target.getName())) {
-                    team.addEntry(target.getName());
-                }
-            }
-        }
-    }
-
-    private void setupSpawnBoard(Scoreboard board, Objective obj, Player player) {
-        obj.getScore("§7(Lobby)").setScore(10);
-        obj.getScore("§1").setScore(9);
-
-        Team money = board.registerNewTeam("money");
-        money.addEntry("§aCoins: ");
-        money.setSuffix("§f" + economyManager.getMoney(player.getUniqueId()));
-        obj.getScore("§aCoins: ").setScore(8);
-
-        obj.getScore("§2").setScore(7);
-
-        Team online = board.registerNewTeam("online");
-        online.addEntry("§bJoueurs: ");
-        online.setSuffix("§f" + Bukkit.getOnlinePlayers().size());
-        obj.getScore("§bJoueurs: ").setScore(6);
-
-        Team ping = board.registerNewTeam("ping");
-        ping.addEntry("§7Ping: ");
-        ping.setSuffix("§f" + player.getPing() + "ms");
-        obj.getScore("§7Ping: ").setScore(5);
-
-        obj.getScore("§3").setScore(4);
-        obj.getScore("§ewww.tonserveur.com").setScore(3);
-    }
-
-    private void setupFFABoard(Scoreboard board, Objective obj, Player player) {
-        obj.getScore("§7(FFA Mode)").setScore(15);
-        obj.getScore("§1").setScore(14);
-
-        Team streak = board.registerNewTeam("streak");
-        streak.addEntry("§cSérie: ");
-        streak.setSuffix("§f" + killstreakManager.getKillstreak(player));
-        obj.getScore("§cSérie: ").setScore(13);
-
-        Team kills = board.registerNewTeam("kills");
-        kills.addEntry("§fKills: ");
-        kills.setSuffix("§e" + killstreakManager.getSessionKills(player));
-        obj.getScore("§fKills: ").setScore(12);
-
-        obj.getScore("§2").setScore(11);
-
-        Team victim = board.registerNewTeam("lastVictim");
-        victim.addEntry("§aVictime: ");
-        victim.setSuffix("§7Aucune");
-        obj.getScore("§aVictime: ").setScore(10);
-
-        Team killer = board.registerNewTeam("lastKiller");
-        killer.addEntry("§cTueur: ");
-        killer.setSuffix("§7Aucun");
-        obj.getScore("§cTueur: ").setScore(9);
-
-        obj.getScore("§3").setScore(8);
-
-        obj.getScore("§6§lTOP 3 Séries:").setScore(7);
-        for(int i=1; i<=3; i++) {
-            Team top = board.registerNewTeam("top" + i);
-            top.addEntry(ChatColor.values()[i].toString());
-            top.setPrefix("§7" + i + ". ---");
-            obj.getScore(ChatColor.values()[i].toString()).setScore(7-i);
-        }
+        // Mise à jour immédiate à la connexion
+        updateScoreboard(player, getTopKillstreakPlayers());
     }
 
     public void removePlayerScoreboard(Player player) {
-        if (tasks.containsKey(player.getUniqueId())) {
-            tasks.get(player.getUniqueId()).cancel();
-            tasks.remove(player.getUniqueId());
+        boards.remove(player.getUniqueId());
+        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+    }
+
+    // CORRECTION : J'ai remis la méthode recordKill qui manquait !
+    public void recordKill(Player killer, Player victim) {
+        // On recalcule le top pour être à jour
+        List<Player> top = getTopKillstreakPlayers();
+        updateScoreboard(killer, top);
+        updateScoreboard(victim, top);
+    }
+
+    // Méthode utilitaire pour avoir le Top 3
+    private List<Player> getTopKillstreakPlayers() {
+        List<Player> topPlayers = new ArrayList<>();
+        World ffaWorld = Bukkit.getWorld(ffaManager.getFFAWorldName());
+
+        if (ffaWorld != null) {
+            topPlayers.addAll(ffaWorld.getPlayers());
+            // Tri décroissant par killstreak
+            topPlayers.sort((p1, p2) -> Integer.compare(killstreakManager.getKillstreak(p2), killstreakManager.getKillstreak(p1)));
+            // On retire ceux qui ont 0 ou moins
+            topPlayers.removeIf(p -> killstreakManager.getKillstreak(p) <= 0);
+        }
+        return topPlayers;
+    }
+
+    private void updateScoreboard(Player player, List<Player> topKillstreaks) {
+        // Si le joueur n'est pas en FFA, on lui retire son scoreboard personnalisé
+        if (!player.getWorld().getName().equals(ffaManager.getFFAWorldName())) {
+            if (player.getScoreboard().getObjective("cod_board") != null) {
+                player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+            }
+            return;
+        }
+
+        // Si le joueur est en FFA mais a perdu son board (ex: déco/reco rapide), on le remet
+        if (!boards.containsKey(player.getUniqueId()) || player.getScoreboard().getObjective("cod_board") == null) {
+            setScoreboard(player);
+            return;
+        }
+
+        Scoreboard board = boards.get(player.getUniqueId());
+        Objective obj = board.getObjective("cod_board");
+        if (obj == null) return;
+
+        // Données
+        int kills = player.getStatistic(Statistic.PLAYER_KILLS);
+        int deaths = player.getStatistic(Statistic.DEATHS);
+        int streak = killstreakManager.getKillstreak(player);
+        double money = economyManager.getMoney(player.getUniqueId()); // getMoney corrigé
+        double ratio = (deaths == 0) ? kills : (double) kills / deaths;
+
+        // Lignes
+        List<String> lines = new ArrayList<>();
+        lines.add("§8§m--------------------");
+        lines.add("§fJoueur : §7" + player.getName());
+        lines.add("§1");
+        lines.add("§fKills : §a" + kills);
+        lines.add("§fMorts : §c" + deaths);
+        lines.add("§fRatio : §e" + ratioFormat.format(ratio));
+        lines.add("§2");
+        lines.add("§fArgent : §6" + (int)money + "$");
+        lines.add("§fSérie : §b" + streak);
+        lines.add("§3");
+
+        // Section TOP 3
+        lines.add("§6§lTOP SÉRIES:");
+        if (topKillstreaks.isEmpty()) {
+            lines.add("§7Aucune en cours");
+        } else {
+            for (int i = 0; i < Math.min(3, topKillstreaks.size()); i++) {
+                Player p = topKillstreaks.get(i);
+                int s = killstreakManager.getKillstreak(p);
+                lines.add("§e" + (i + 1) + ". §f" + p.getName() + " §7- §b" + s);
+            }
+        }
+
+        lines.add("§4");
+        lines.add("§ewww.callofdusty.fr");
+        lines.add("§8§m-------------------- ");
+
+        // Nettoyage et Application
+        for (String entry : board.getEntries()) {
+            board.resetScores(entry);
+        }
+
+        int score = lines.size();
+        for (String line : lines) {
+            obj.getScore(line).setScore(score);
+            score--;
         }
     }
 
-    private void startUpdater(Player player) {
-        BukkitRunnable task = new BukkitRunnable() {
+    private void startUpdater() {
+        new BukkitRunnable() {
             @Override
             public void run() {
-                if (!player.isOnline()) {
-                    this.cancel();
-                    return;
+                // On calcule le top 3 une seule fois pour tout le monde
+                List<Player> topPlayers = getTopKillstreakPlayers();
+
+                for (UUID uuid : boards.keySet()) {
+                    Player p = Bukkit.getPlayer(uuid);
+                    if (p != null && p.isOnline()) {
+                        updateScoreboard(p, topPlayers);
+                    }
                 }
-
-                if (player.getScoreboard().getObjective("cod_board") == null) {
-                    setScoreboard(player);
-                    return;
-                }
-
-                boolean inFFA = player.getWorld().getName().equals(ffaManager.getFFAWorldName());
-                updateBoard(player, inFFA);
             }
-        };
-        tasks.put(player.getUniqueId(), task.runTaskTimer(plugin, 0L, 20L));
-    }
-
-    private void updateBoard(Player player, boolean inFFA) {
-        Scoreboard board = player.getScoreboard();
-
-        if (inFFA) {
-            board.getTeam("streak").setSuffix("§f" + killstreakManager.getKillstreak(player));
-            board.getTeam("kills").setSuffix("§e" + killstreakManager.getSessionKills(player));
-
-            String lVictim = lastVictims.getOrDefault(player.getUniqueId(), "§7Aucune");
-            board.getTeam("lastVictim").setSuffix("§f" + (lVictim.length() > 10 ? lVictim.substring(0,10) : lVictim));
-
-            String lKiller = lastKillers.getOrDefault(player.getUniqueId(), "§7Aucun");
-            board.getTeam("lastKiller").setSuffix("§f" + (lKiller.length() > 10 ? lKiller.substring(0,10) : lKiller));
-
-            Map<String, Integer> top = killstreakManager.getTopKillers(3);
-            int i = 1;
-            for (Map.Entry<String, Integer> entry : top.entrySet()) {
-                Team team = board.getTeam("top" + i);
-                if (team != null) team.setPrefix("§e" + i + ". §f" + entry.getKey() + " §7- §c" + entry.getValue());
-                i++;
-            }
-        } else {
-            board.getTeam("money").setSuffix("§f" + economyManager.getMoney(player.getUniqueId()));
-            board.getTeam("online").setSuffix("§f" + Bukkit.getOnlinePlayers().size());
-            board.getTeam("ping").setSuffix("§f" + player.getPing() + "ms");
-        }
+        }.runTaskTimer(plugin, 0L, 20L); // 1 seconde
     }
 }

@@ -6,7 +6,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
 
 public class BuildModeCommand implements CommandExecutor {
 
@@ -17,25 +16,19 @@ public class BuildModeCommand implements CommandExecutor {
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("§cCette commande est réservée aux joueurs.");
+            sender.sendMessage("§cSeul un joueur peut utiliser cette commande.");
             return true;
         }
 
         Player player = (Player) sender;
-        if (!player.isOp()) {
-            sender.sendMessage("§cVous n'avez pas la permission.");
+        if (!player.hasPermission("core.admin.build")) {
+            player.sendMessage("§cVous n'avez pas la permission.");
             return true;
         }
 
-        boolean newState = buildModeManager.toggleBuildMode(player);
-
-        if (newState) {
-            player.sendMessage("§a§l[!] Mode Build ACTIVÉ. §fToutes les restrictions sont levées.");
-        } else {
-            player.sendMessage("§c§l[!] Mode Build DÉSACTIVÉ. §fLes restrictions s'appliquent à nouveau.");
-        }
+        buildModeManager.toggleBuildMode(player);
         return true;
     }
 }

@@ -1,0 +1,11 @@
+# Configuration par défaut du module FFA
+# Note: Les spawns et le monde sont gérés dans ffa.yml, mais ce fichier est requis par Bukkit.
+
+# Activer les messages de debug dans la console ?
+debug-mode: false
+
+# Options génériques
+general:
+  chat-format: true
+  disable-rain: true
+  disable-hunger: true

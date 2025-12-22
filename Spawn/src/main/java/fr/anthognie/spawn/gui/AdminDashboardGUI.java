@@ -6,12 +6,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 public class AdminDashboardGUI {
 
-    // Titre harmonisé
-    public static final String GUI_TITLE = "§cAdmin §8» §eTableau de Bord";
-
+    // TITRE UNIQUE HARMONISÉ
+    public static final String GUI_TITLE = "§c§lTableau de Bord Admin";
     private final Main plugin;
 
     public AdminDashboardGUI(Main plugin) {
@@ -19,22 +19,25 @@ public class AdminDashboardGUI {
     }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, GUI_TITLE);
+        Inventory inv = Bukkit.createInventory(null, 36, GUI_TITLE);
 
-        // Bouton Spawn
-        inv.setItem(11, ItemBuilder.create(Material.COMPASS, "§aConfiguration Spawn",
-                "§7Gérer le point de spawn,", "§7le lobby et la protection."));
+        // Configuration
+        inv.setItem(10, ItemBuilder.create(Material.COMPASS, "§eGérer le Spawn", "§7Définir spawn/lobby"));
+        inv.setItem(12, ItemBuilder.create(Material.DIAMOND_SWORD, "§cGérer le FFA", "§7Spawns, Kits, Stats..."));
+        inv.setItem(14, ItemBuilder.create(Material.CHEST, "§bGérer les Airdrops", "§7Kits & Loots"));
+        inv.setItem(16, ItemBuilder.create(Material.BOOK, "§aBase de Données Items", "§7Modifier les items moddés"));
 
-        // Bouton FFA
-        inv.setItem(13, ItemBuilder.create(Material.IRON_SWORD, "§cConfiguration FFA",
-                "§7Gérer le mode FFA,", "§7le build mode et les dégâts."));
+        // Outils
+        inv.setItem(26, ItemBuilder.create(Material.GOLDEN_AXE, "§6Mode Build", "§7Activer/Désactiver la construction"));
 
-        // Bouton Airdrops
-        inv.setItem(15, ItemBuilder.create(Material.CHEST, "§6Configuration Airdrops",
-                "§7Gérer les largages,", "§7les timers et les loots."));
+        // Fermer
+        inv.setItem(31, ItemBuilder.create(Material.BARRIER, "§cFermer"));
 
-        // Bouton Fermer
-        inv.setItem(22, ItemBuilder.create(Material.BARRIER, "§cFermer"));
+        // Vitres
+        ItemStack vitre = ItemBuilder.create(Material.GRAY_STAINED_GLASS_PANE, " ");
+        for (int i = 0; i < 36; i++) {
+            if (inv.getItem(i) == null) inv.setItem(i, vitre);
+        }
 
         player.openInventory(inv);
     }

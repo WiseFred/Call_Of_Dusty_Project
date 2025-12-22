@@ -3,25 +3,34 @@ plugins {
 }
 
 group = 'fr.anthognie'
-version = '1.0.0'
-
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(21)
-}
+version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
-    maven { url "https://maven.mohistmc.com/" }
+    maven {
+        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+        content {
+            includeGroup 'org.bukkit'
+            includeGroup 'org.spigotmc'
+        }
+    }
+    maven { url = 'https://oss.sonatype.org/content/repositories/snapshots' }
+    maven { url = 'https://oss.sonatype.org/content/repositories/central' }
 }
 
 dependencies {
-    compileOnly 'com.mohistmc:mohistdev:1.20.1'
-
-    compileOnly project(':Core')
+    // API Spigot 1.20.1
+    compileOnly 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
+    implementation project(':Core')
 }
 
-processResources {
-    filesMatching('plugin.yml') {
-        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [version: project.version])
-    }
+// Minecraft 1.20.1 nécessite Java 17
+targetCompatibility = JavaVersion.VERSION_17
+sourceCompatibility = JavaVersion.VERSION_17
+
+task copyToDevServer(type: Copy) {
+    from jar
+    into "/Users/anthony/Library/Application Support/feather/player-server/servers/b89081dd-b5dd-4d18-835c-13b3cca34af9/plugins"
 }
+
+build.dependsOn copyToDevServer

@@ -11,7 +11,6 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,7 +30,7 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.isOp()) {
             sender.sendMessage("§cVous n'avez pas la permission.");
             return true;
@@ -82,6 +81,7 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§aForçage de la séquence d'airdrop ULTIME (5s).");
         } else {
             airdropManager.forceAirdrop(false);
+            sender.sendMessage("§aForçage de la séquence d'airdrop NORMAL (5s).");
         }
     }
 
@@ -158,8 +158,6 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
 
         // Supprime le contenu du kit dans items.yml via le Manager du Core
         String itemPath = "airdrops.loot." + type + "." + kitName;
-
-        // CORRECTION ICI : Utilisation de deleteItem au lieu de setItemStack(null)
         plugin.getItemConfigManager().deleteItem(itemPath);
 
         sender.sendMessage("§aKit '" + kitName + "' supprimé (items et config).");
@@ -193,7 +191,7 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
         String base64data = plugin.getItemConfigManager().getConfig().getString(itemPath);
         if (base64data != null && !base64data.isEmpty()) {
             try {
-                // Utilisation du nouveau sérialiseur qui supporte les mods
+                // Utilisation du sérialiseur
                 inv.setContents(fr.anthognie.Core.utils.InventorySerializer.itemStackArrayFromBase64(base64data));
             } catch (Exception e) {
                 sender.sendMessage("§cErreur lors du chargement de ce kit. L'inventaire est peut-être corrompu.");
@@ -215,7 +213,7 @@ public class AirdropCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         FileConfiguration lootConfig = lootManager.getConfig();
 
         if (args.length == 1) {
