@@ -3,12 +3,10 @@ package fr.anthognie.spawn.listeners;
 import fr.anthognie.spawn.Main;
 import fr.anthognie.spawn.gui.SpawnConfigGUI;
 import org.bukkit.Material;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.ItemStack;
 
 public class SpawnConfigListener implements Listener {
 
@@ -19,47 +17,43 @@ public class SpawnConfigListener implements Listener {
     }
 
     @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
-        String title = event.getView().getTitle();
-        if (!title.equals(SpawnConfigGUI.GUI_TITLE)) {
-            return; // Ce n'est pas le bon GUI
-        }
+    public void onClick(InventoryClickEvent event) {
+        if (!event.getView().getTitle().equals(SpawnConfigGUI.GUI_TITLE)) return;
 
         event.setCancelled(true);
+        if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) return;
+
         Player player = (Player) event.getWhoClicked();
-        ItemStack clickedItem = event.getCurrentItem();
+        int slot = event.getSlot();
 
-        if (clickedItem == null || clickedItem.getType() == Material.AIR) {
-            return;
-        }
+        switch (slot) {
+            case 11: // Définir Spawn
+                player.closeInventory();
+                // Commande interne ou logique directe
+                player.getWorld().setSpawnLocation(player.getLocation());
+                plugin.getConfig().set("spawn.location", player.getLocation());
+                plugin.saveConfig();
+                player.sendMessage("§aSpawn principal défini ici !");
+                break;
 
-        // Gestion du clic
-        String path = null;
-        switch (event.getSlot()) {
-            case 10: path = "protection.invincible"; break;
-            case 12: path = "protection.no-hunger"; break;
-            case 14: path = "protection.no-break"; break;
-            case 16: path = "protection.no-place"; break;
-            case 28: path = "protection.no-drop"; break;
-            case 30: path = "protection.no-pickup"; break;
-            case 34: path = "force-gamemode.enabled"; break;
+            case 13: // Définir Lobby (Si utilisé, sinon juste spawn)
+                player.closeInventory();
+                plugin.getConfig().set("lobby.location", player.getLocation());
+                plugin.saveConfig();
+                player.sendMessage("§eLobby défini ici !");
+                break;
 
-            case 40: // Bouton Retour
+            case 15: // Toggle Void TP
+                boolean current = plugin.getConfig().getBoolean("void-tp.enabled");
+                plugin.getConfig().set("void-tp.enabled", !current);
+                plugin.saveConfig();
+                plugin.getSpawnConfigGUI().open(player); // Refresh
+                break;
+
+            case 40: // Retour
+                player.closeInventory();
                 plugin.getAdminDashboardGUI().open(player);
-                return;
-
-            default:
-                return; // Clic sur un slot vide
+                break;
         }
-
-        // On a cliqué sur un bouton "toggle"
-        FileConfiguration config = plugin.getConfig();
-        boolean currentValue = config.getBoolean(path);
-        config.set(path, !currentValue); // On inverse la valeur
-
-        plugin.saveConfig(); // On sauvegarde sur le disque
-
-        // On rafraîchit le menu pour montrer le changement
-        plugin.getSpawnConfigGUI().open(player);
     }
 }

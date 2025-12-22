@@ -20,6 +20,8 @@ public class AdminDashboardListener implements Listener {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         String title = event.getView().getTitle();
+
+        // Vérification stricte du titre
         if (!title.equals(AdminDashboardGUI.GUI_TITLE)) {
             return;
         }
@@ -34,23 +36,24 @@ public class AdminDashboardListener implements Listener {
 
         switch (event.getSlot()) {
             case 10: // Gérer le Spawn
+                // Ouvre le menu de config spawn
                 plugin.getSpawnConfigGUI().open(player);
                 break;
 
             case 12: // Gérer le FFA
                 player.closeInventory();
+                // Exécute la commande définie dans FFA
                 player.performCommand("ffaconfig");
                 break;
 
             case 14: // Gérer les Airdrops
                 player.closeInventory();
+                // Exécute la commande définie dans Airdrops
                 player.performCommand("airdropconfig");
                 break;
 
             case 16: // Gérer la DB d'items
                 player.closeInventory();
-                // --- MODIFICATION ---
-                // On exécute la commande du catalogue d'items
                 player.performCommand("itemdb");
                 break;
 

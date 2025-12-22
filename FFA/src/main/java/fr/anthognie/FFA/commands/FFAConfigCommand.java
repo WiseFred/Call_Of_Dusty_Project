@@ -1,29 +1,29 @@
 package fr.anthognie.FFA.commands;
 
 import fr.anthognie.FFA.Main;
-import fr.anthognie.FFA.gui.FFAConfigGUI;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
 
 public class FFAConfigCommand implements CommandExecutor {
 
-    private final FFAConfigGUI ffaConfigGUI;
+    private final Main plugin;
 
     public FFAConfigCommand(Main plugin) {
-        this.ffaConfigGUI = plugin.getFfaConfigGUI();
+        this.plugin = plugin;
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cCette commande est réservée aux joueurs.");
-            return true;
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (sender instanceof Player) {
+            Player player = (Player) sender;
+            if (player.isOp()) {
+                // Ouvre le menu de config interne au module FFA
+                // Assure-toi que cette méthode existe dans ton Main FFA, sinon on la crée juste après
+                plugin.getFfaConfigGUI().open(player);
+            }
         }
-
-        ffaConfigGUI.open((Player) sender);
         return true;
     }
 }
