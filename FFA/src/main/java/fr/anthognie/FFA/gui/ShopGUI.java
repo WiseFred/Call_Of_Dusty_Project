@@ -1,203 +1,144 @@
 package fr.anthognie.FFA.gui;
 
-import fr.anthognie.Core.managers.EconomyManager;
+import fr.anthognie.Core.utils.ItemBuilder;
 import fr.anthognie.FFA.Main;
-import fr.anthognie.Core.managers.ItemConfigManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.UUID;
 
 public class ShopGUI {
 
+    public static final String GUI_TITLE = "§6§lArmurerie";
+    public static final String ADMIN_TITLE = "§c§lArmurerie (Édition)"; // Ajouté
+
     private final Main plugin;
-    private final EconomyManager economyManager;
-    private final ItemConfigManager itemConfigManager;
-
-    private File configFile;
-    private FileConfiguration shopConfig;
-    private String shopTitle;
-    private int shopSize;
-
-    // --- TITRES ---
-    public static final String PLAYER_TITLE = "§e§lCall of Dusty Shop";
-    public static final String ADMIN_TITLE = "§c§l[ÉDITION] §eShop";
+    private final File file;
+    private final FileConfiguration config;
 
     public ShopGUI(Main plugin) {
         this.plugin = plugin;
-        this.economyManager = plugin.getEconomyManager();
-        this.itemConfigManager = plugin.getItemConfigManager();
-        loadShopConfig();
-    }
-
-    public void loadShopConfig() {
-        this.configFile = new File(plugin.getDataFolder(), "shop.yml");
-        if (!configFile.exists()) {
+        this.file = new File(plugin.getDataFolder(), "shop.yml");
+        if (!file.exists()) {
             plugin.saveResource("shop.yml", false);
         }
-        this.shopConfig = YamlConfiguration.loadConfiguration(configFile);
-        this.shopTitle = shopConfig.getString("title", PLAYER_TITLE);
-        this.shopSize = shopConfig.getInt("size", 54);
+        this.config = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
     }
 
-    // Surcharge pour le /shop normal
+    // Méthode simple (Mode Joueur)
     public void open(Player player) {
-        open(player, false); // false = pas en mode édition
+        open(player, false);
     }
 
-    // Méthode principale
-    public void open(Player player, boolean isEditMode) {
-        String title = isEditMode ? ADMIN_TITLE : this.shopTitle;
-        Inventory inv = Bukkit.createInventory(null, this.shopSize, title);
+    // Méthode complète (Mode Admin supporté)
+    public void open(Player player, boolean adminMode) {
+        String title = adminMode ? ADMIN_TITLE : GUI_TITLE;
+        Inventory inv = Bukkit.createInventory(null, 54, title);
 
-        // 1. Placer les items spéciaux (Boutons)
-        ConfigurationSection specialItemsSection = shopConfig.getConfigurationSection("special-items");
-        if (specialItemsSection != null) {
-            for (String key : specialItemsSection.getKeys(false)) {
-                String path = "special-items." + key;
-                int slot = shopConfig.getInt(path + ".slot");
-                String matName = shopConfig.getString(path + ".item");
-                String name = shopConfig.getString(path + ".name");
-                List<String> lore = shopConfig.getStringList(path + ".lore");
+        ConfigurationSection items = config.getConfigurationSection("items");
+        if (items != null) {
+            for (String key : items.getKeys(false)) {
+                try {
+                    int slot = items.getInt(key + ".slot");
+                    String name = items.getString(key + ".name");
+                    Material material = Material.valueOf(items.getString(key + ".material"));
+                    int price = items.getInt(key + ".price");
+                    int amount = items.getInt(key + ".amount", 1);
 
-                ItemStack item = new ItemStack(Material.getMaterial(matName, false));
-                ItemMeta meta = item.getItemMeta();
-                meta.setDisplayName(name);
-
-                List<String> finalLore = new ArrayList<>();
-                for (String line : lore) {
-                    finalLore.add(line.replace("%money%", String.valueOf(economyManager.getMoney(player.getUniqueId()))));
-                }
-                meta.setLore(finalLore);
-
-                item.setItemMeta(meta);
-                inv.setItem(slot, item);
-            }
-        }
-
-        // 2. Placer les items à vendre
-        ConfigurationSection itemsSection = shopConfig.getConfigurationSection("items");
-        if (itemsSection != null) {
-            for (String key : itemsSection.getKeys(false)) {
-                String path = "items." + key;
-                String itemPath = shopConfig.getString(path + ".item-path");
-                int slot = shopConfig.getInt(path + ".slot");
-                int price = shopConfig.getInt(path + ".price");
-
-                ItemStack moddedItem = itemConfigManager.getItemStack(itemPath);
-                if (moddedItem == null) {
-                    // Si l'item n'existe pas, on met un placeholder (pour l'admin)
-                    if (isEditMode) {
-                        moddedItem = new ItemStack(Material.BARRIER);
-                        ItemMeta meta = moddedItem.getItemMeta();
-                        meta.setDisplayName("§cITEM INTROUVABLE");
-                        meta.setLore(List.of("§7Path: " + itemPath));
-                        moddedItem.setItemMeta(meta);
+                    // Lore différent selon le mode
+                    ItemStack item;
+                    if (adminMode) {
+                        item = ItemBuilder.create(material,
+                                name.replace("&", "§"),
+                                "§7Prix : §6" + price,
+                                "§7ID: §f" + key,
+                                "§c[Clic Droit] Supprimer");
                     } else {
-                        continue;
+                        item = ItemBuilder.create(material,
+                                name.replace("&", "§"),
+                                "§7Prix : §6" + price + " coins",
+                                "§7Quantité : §e" + amount,
+                                "",
+                                "§eClic pour acheter");
                     }
+                    item.setAmount(amount);
+
+                    inv.setItem(slot, item);
+
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Erreur chargement item shop: " + key);
                 }
-
-                ItemStack displayItem = moddedItem.clone();
-                ItemMeta meta = displayItem.getItemMeta();
-
-                if (shopConfig.contains(path + ".name")) {
-                    meta.setDisplayName(shopConfig.getString(path + ".name"));
-                }
-
-                List<String> lore = shopConfig.getStringList(path + ".lore");
-                List<String> finalLore = new ArrayList<>();
-
-                // Si on est en mode édition, on ajoute les infos admin
-                if (isEditMode) {
-                    finalLore.add("§8--- ADMIN ---");
-                    finalLore.add("§7Key: §f" + key);
-                    finalLore.add("§7Path: §f" + itemPath);
-                    finalLore.add("§7Prix: §f" + price);
-                    finalLore.add("§8---------------");
-                }
-
-                for (String line : lore) {
-                    finalLore.add(line.replace("%price%", String.valueOf(price)));
-                }
-                meta.setLore(finalLore);
-
-                displayItem.setItemMeta(meta);
-                inv.setItem(slot, displayItem);
             }
         }
+
+        // Décoration
+        ItemStack vitre = ItemBuilder.create(Material.BLACK_STAINED_GLASS_PANE, " ");
+        for (int i : new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 45, 46, 47, 48, 50, 51, 52, 53}) {
+            if (inv.getItem(i) == null) inv.setItem(i, vitre);
+        }
+
+        inv.setItem(49, ItemBuilder.create(Material.BARRIER, "§cFermer"));
 
         player.openInventory(inv);
     }
 
-    // --- NOUVELLES MÉTHODES POUR L'ÉDITION ---
+    // --- MÉTHODES D'ÉDITION (POUR SHOPEDITLISTENER) ---
 
-    public void saveShopConfig() {
-        try {
-            shopConfig.save(configFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Impossible de sauvegarder shop.yml !");
-            e.printStackTrace();
-        }
+    public FileConfiguration getShopConfig() { // Alias demandé par l'erreur
+        return config;
     }
 
-    public void setShopItem(String key, String itemPath, int slot, int price) {
-        String path = "items." + key;
-        shopConfig.set(path + ".item-path", itemPath);
-        shopConfig.set(path + ".slot", slot);
-        shopConfig.set(path + ".price", price);
-
-        // On ajoute un lore par défaut
-        List<String> defaultLore = new ArrayList<>();
-        defaultLore.add("§fPrix: §e%price% coins");
-        defaultLore.add("§aClic gauche pour acheter !");
-        shopConfig.set(path + ".lore", defaultLore);
-
-        saveShopConfig();
+    public FileConfiguration getConfig() {
+        return config;
     }
 
     public void removeShopItem(int slot) {
-        ConfigurationSection itemsSection = shopConfig.getConfigurationSection("items");
-        if (itemsSection == null) return;
+        ConfigurationSection items = config.getConfigurationSection("items");
+        if (items == null) return;
 
         String keyToRemove = null;
-        for (String key : itemsSection.getKeys(false)) {
-            if (itemsSection.getInt(key + ".slot") == slot) {
+        for (String key : items.getKeys(false)) {
+            if (items.getInt(key + ".slot") == slot) {
                 keyToRemove = key;
                 break;
             }
         }
 
         if (keyToRemove != null) {
-            // On supprime l'item du shop.yml
-            shopConfig.set("items." + keyToRemove, null);
-            saveShopConfig();
-
-            // On supprime aussi l'item de items.yml (dans le Core)
-            String itemPath = itemsSection.getString(keyToRemove + ".item-path");
-            if (itemPath != null) {
-                // CORRECTION ICI : Utilisation de deleteItem au lieu de setItemStack(..., null)
-                itemConfigManager.deleteItem(itemPath);
-                // Le saveConfig() est déjà inclus dans deleteItem, donc pas besoin de le rappeler
-            }
+            config.set("items." + keyToRemove, null);
+            saveConfig();
         }
     }
 
-    public String getShopTitle() {
-        return shopTitle;
+    public void setShopItem(String itemId, String materialName, int price, int slot) {
+        // Génère une clé unique si nécessaire, ou utilise l'ID comme clé
+        String key = "item_" + UUID.randomUUID().toString().substring(0, 8);
+
+        // On essaie de trouver un nom sympa
+        String displayName = "§f" + itemId;
+
+        config.set("items." + key + ".name", displayName);
+        config.set("items." + key + ".material", materialName);
+        config.set("items." + key + ".item-id", itemId); // ID réel (ex: cgm:pistol)
+        config.set("items." + key + ".price", price);
+        config.set("items." + key + ".amount", 1);
+        config.set("items." + key + ".slot", slot);
+
+        saveConfig();
     }
 
-    public FileConfiguration getShopConfig() {
-        return shopConfig;
+    public void saveConfig() {
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

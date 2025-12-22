@@ -13,6 +13,16 @@ import java.lang.reflect.Method;
 
 public class InventorySerializer {
 
+    // --- ALIAS DE COMPATIBILITÉ (Ceux qui manquaient pour EconomyManager) ---
+    public static String toBase64(ItemStack[] items) {
+        return itemStackArrayToBase64(items);
+    }
+
+    public static ItemStack[] fromBase64(String data) throws IOException {
+        return itemStackArrayFromBase64(data);
+    }
+    // ------------------------------------------------------------------------
+
     // --- GESTION TABLEAUX (POUR INVENTAIRES COMPLETS) ---
 
     public static String itemStackArrayToBase64(ItemStack[] items) {
@@ -23,9 +33,8 @@ public class InventorySerializer {
             dataOutput.writeInt(items.length);
 
             for (ItemStack item : items) {
-                // On utilise une méthode spéciale pour sauvegarder le NBT complet
                 if (item != null && item.getType() != org.bukkit.Material.AIR) {
-                    dataOutput.writeObject(saveNBT(item)); // Sauvegarde NBT
+                    dataOutput.writeObject(saveNBT(item)); // Sauvegarde NBT Moddé
                 } else {
                     dataOutput.writeObject(null);
                 }
@@ -34,7 +43,7 @@ public class InventorySerializer {
             dataOutput.close();
             return Base64Coder.encodeLines(outputStream.toByteArray());
         } catch (Exception e) {
-            throw new IllegalStateException("Erreur lors de la sauvegarde des items (NBT Array).", e);
+            throw new IllegalStateException("Erreur lors de la sauvegarde des items (Array).", e);
         }
     }
 
@@ -48,7 +57,7 @@ public class InventorySerializer {
             for (int i = 0; i < items.length; i++) {
                 Object readObject = dataInput.readObject();
                 if (readObject != null) {
-                    items[i] = restoreNBT(readObject); // Restaure NBT
+                    items[i] = restoreNBT(readObject); // Restaure NBT Moddé
                 } else {
                     items[i] = null;
                 }
@@ -57,11 +66,11 @@ public class InventorySerializer {
             dataInput.close();
             return items;
         } catch (ClassNotFoundException e) {
-            throw new IOException("Erreur lors du chargement des items (NBT Array).", e);
+            throw new IOException("Erreur lors du chargement des items (Array).", e);
         }
     }
 
-    // --- GESTION ITEM UNIQUE (POUR LA DB / CONFIG) ---
+    // --- GESTION ITEM UNIQUE (POUR LA CONFIG / ITEMDB) ---
 
     public static String singleItemToBase64(ItemStack item) {
         try {
@@ -100,27 +109,23 @@ public class InventorySerializer {
     }
 
     // --- MÉTHODES PRIVÉES DE RÉFLEXION (NMS / ARCLIGHT) ---
-    // Ces méthodes assurent que les données du mod (NBT) ne sont pas perdues par Bukkit.
 
     private static Object saveNBT(ItemStack item) {
         try {
-            // Tentative de conversion en NMS ItemStack
             Class<?> craftItemStackClass = getOBCClass("inventory.CraftItemStack");
             Method asNMSCopy = craftItemStackClass.getMethod("asNMSCopy", ItemStack.class);
             Object nmsItem = asNMSCopy.invoke(null, item);
 
-            // Sauvegarde dans un NBTTagCompound
             Class<?> nmsItemClass = getNMSClass("world.item.ItemStack");
             Class<?> nbtTagCompoundClass = getNMSClass("nbt.NBTTagCompound");
             Object nbtTag = nbtTagCompoundClass.newInstance();
 
-            Method saveMethod = nmsItemClass.getMethod("b", nbtTagCompoundClass); // 'b' est save(CompoundTag)
+            Method saveMethod = nmsItemClass.getMethod("b", nbtTagCompoundClass);
             saveMethod.invoke(nmsItem, nbtTag);
 
-            return nbtTag.toString(); // Retourne le NBT en String
+            return nbtTag.toString();
         } catch (Exception e) {
-            // Fallback : Si la réflexion échoue, on sauvegarde l'item Bukkit classique
-            return item;
+            return item; // Fallback
         }
     }
 
@@ -132,17 +137,14 @@ public class InventorySerializer {
             try {
                 String nbtString = (String) serialized;
 
-                // Parse le String en NBTTagCompound
                 Class<?> tagParserClass = getNMSClass("nbt.MojangsonParser");
-                Method parseMethod = tagParserClass.getMethod("a", String.class); // 'a' = parse
+                Method parseMethod = tagParserClass.getMethod("a", String.class);
                 Object nbtTag = parseMethod.invoke(null, nbtString);
 
-                // Crée un ItemStack NMS depuis le tag
                 Class<?> nmsItemClass = getNMSClass("world.item.ItemStack");
-                Method createMethod = nmsItemClass.getMethod("a", getNMSClass("nbt.NBTTagCompound")); // 'a' = of
+                Method createMethod = nmsItemClass.getMethod("a", getNMSClass("nbt.NBTTagCompound"));
                 Object nmsItem = createMethod.invoke(null, nbtTag);
 
-                // Convertit en Bukkit ItemStack
                 Class<?> craftItemStackClass = getOBCClass("inventory.CraftItemStack");
                 Method asBukkitCopy = craftItemStackClass.getMethod("asBukkitCopy", nmsItemClass);
                 return (ItemStack) asBukkitCopy.invoke(null, nmsItem);

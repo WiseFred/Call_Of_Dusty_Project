@@ -18,7 +18,7 @@ public class Main extends JavaPlugin {
     private static Main instance;
     private EconomyManager economyManager;
     private ItemConfigManager itemConfigManager;
-    private BuildModeManager buildModeManager; // <-- LA LIGNE MANQUANTE ÉTAIT ICI
+    private BuildModeManager buildModeManager;
 
     private ItemDatabaseGUI itemDatabaseGUI;
     private ItemDatabaseChatListener itemDatabaseChatListener;
@@ -29,8 +29,8 @@ public class Main extends JavaPlugin {
         getLogger().info("Call of Dusty [CORE]... Activation.");
 
         this.economyManager = new EconomyManager(this);
-        this.economyManager.initializeDatabase();
-        getLogger().info("EconomyManager et Base de Données initialisés.");
+        // initializeDatabase() retiré car on utilise des fichiers maintenant
+        getLogger().info("EconomyManager initialisé.");
 
         this.itemConfigManager = new ItemConfigManager(this);
         getLogger().info("ItemConfigManager initialisé.");
@@ -45,7 +45,7 @@ public class Main extends JavaPlugin {
     private void initializeManagers() {
         this.itemDatabaseGUI = new ItemDatabaseGUI(itemConfigManager);
         this.itemDatabaseChatListener = new ItemDatabaseChatListener(this);
-        this.buildModeManager = new BuildModeManager(); // (Cette ligne est correcte)
+        this.buildModeManager = new BuildModeManager();
     }
 
     private void registerListeners() {
@@ -72,8 +72,8 @@ public class Main extends JavaPlugin {
     @Override
     public void onDisable() {
         if (economyManager != null) {
-            economyManager.saveAllData();
-            economyManager.closeDatabase();
+            economyManager.saveAllData(); // Nouvelle méthode
+            // closeDatabase() retiré
         }
         getLogger().info("Call of Dusty [CORE] désactivé.");
     }

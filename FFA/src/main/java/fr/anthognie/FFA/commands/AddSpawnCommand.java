@@ -2,35 +2,37 @@ package fr.anthognie.FFA.commands;
 
 import fr.anthognie.FFA.Main;
 import fr.anthognie.FFA.managers.ConfigManager;
-import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
 
 public class AddSpawnCommand implements CommandExecutor {
 
+    private final Main plugin;
     private final ConfigManager configManager;
 
     public AddSpawnCommand(Main plugin) {
-        this.configManager = plugin.getConfigManager();
+        this.plugin = plugin;
+        this.configManager = plugin.getFfaConfigManager();
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("§cCette commande est réservée aux joueurs.");
+            sender.sendMessage("§cSeul un joueur peut exécuter cette commande.");
             return true;
         }
 
         Player player = (Player) sender;
-        Location loc = player.getLocation();
+        if (!player.isOp()) {
+            player.sendMessage("§cVous n'avez pas la permission.");
+            return true;
+        }
 
-        configManager.addSpawn(loc);
-
+        // CORRECTION : utilisation de addSpawn au lieu de addSpawnLocation
+        configManager.addSpawn(player.getLocation());
         player.sendMessage("§aPoint de spawn ajouté avec succès !");
-        player.sendMessage("§7(Monde: " + loc.getWorld().getName() + ", X: " + loc.getBlockX() + ", Y: " + loc.getBlockY() + ", Z: " + loc.getBlockZ() + ")");
 
         return true;
     }

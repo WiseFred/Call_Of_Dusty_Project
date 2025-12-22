@@ -21,8 +21,7 @@ public class PlayerJoinListener implements Listener {
         Player player = event.getPlayer();
         UUID playerUUID = player.getUniqueId();
 
-        economyManager.loadPlayerAccount(playerUUID);
+        economyManager.loadPlayer(playerUUID); // Correction ici
         player.sendMessage("§aBienvenue ! §fVous avez §e" + economyManager.getMoney(playerUUID) + " coins.");
-
     }
 }

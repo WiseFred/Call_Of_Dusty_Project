@@ -3,11 +3,11 @@ package fr.anthognie.spawn;
 import fr.anthognie.spawn.commands.AdminCommand;
 import fr.anthognie.spawn.gui.AdminDashboardGUI;
 import fr.anthognie.spawn.gui.GameSelectorGUI;
-import fr.anthognie.spawn.gui.SpawnConfigGUI; // <-- NOUVEL IMPORT
+import fr.anthognie.spawn.gui.SpawnConfigGUI;
 import fr.anthognie.spawn.listeners.AdminDashboardListener;
 import fr.anthognie.spawn.listeners.CompassListener;
 import fr.anthognie.spawn.listeners.GameSelectorListener;
-import fr.anthognie.spawn.listeners.SpawnConfigListener; // <-- NOUVEL IMPORT
+import fr.anthognie.spawn.listeners.SpawnConfigListener;
 import fr.anthognie.spawn.listeners.SpawnListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -16,7 +16,7 @@ public class Main extends JavaPlugin {
     private fr.anthognie.Core.Main core;
     private GameSelectorGUI gameSelectorGUI;
     private AdminDashboardGUI adminDashboardGUI;
-    private SpawnConfigGUI spawnConfigGUI; // <-- NOUVEAU
+    private SpawnConfigGUI spawnConfigGUI;
 
     @Override
     public void onEnable() {
@@ -38,8 +38,9 @@ public class Main extends JavaPlugin {
 
     private void initializeManagers() {
         this.gameSelectorGUI = new GameSelectorGUI(this);
-        this.adminDashboardGUI = new AdminDashboardGUI();
-        this.spawnConfigGUI = new SpawnConfigGUI(this); // <-- ON L'INITIALISE
+        // CORRECTION ICI : On passe 'this' au constructeur
+        this.adminDashboardGUI = new AdminDashboardGUI(this);
+        this.spawnConfigGUI = new SpawnConfigGUI(this);
     }
 
     private void registerCommands() {
@@ -50,8 +51,8 @@ public class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SpawnListener(this), this);
         getServer().getPluginManager().registerEvents(new CompassListener(this), this);
         getServer().getPluginManager().registerEvents(new GameSelectorListener(this.gameSelectorGUI), this);
-        getServer().getPluginManager().registerEvents(new AdminDashboardListener(this), this); // <-- MODIFIÉ
-        getServer().getPluginManager().registerEvents(new SpawnConfigListener(this), this); // <-- NOUVEAU
+        getServer().getPluginManager().registerEvents(new AdminDashboardListener(this), this);
+        getServer().getPluginManager().registerEvents(new SpawnConfigListener(this), this);
     }
 
     @Override
@@ -71,7 +72,6 @@ public class Main extends JavaPlugin {
         return adminDashboardGUI;
     }
 
-    // --- NOUVEAU GETTER ---
     public SpawnConfigGUI getSpawnConfigGUI() {
         return spawnConfigGUI;
     }

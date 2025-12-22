@@ -52,8 +52,69 @@ public class ScoreboardManager {
             setupSpawnBoard(board, obj, player);
         }
 
+        // On passe 'inFFA' pour savoir si on doit cacher les pseudos
+        updateNametags(board, inFFA);
+
         player.setScoreboard(board);
         startUpdater(player);
+    }
+
+    // Met à jour les équipes sur un scoreboard spécifique
+    public void updateNametags(Scoreboard board, boolean hideNames) {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            String teamName = p.getName();
+            Team team = board.getTeam(teamName);
+            if (team == null) {
+                team = board.registerNewTeam(teamName);
+            }
+
+            // --- GESTION DE LA VISIBILITÉ ---
+            if (hideNames) {
+                // En FFA : On cache le pseudo au-dessus de la tête
+                // Mais le préfixe restera visible dans la TABLIST
+                team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+            } else {
+                // Au Spawn : On affiche tout
+                team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+            }
+
+            String prefix = plugin.getLevelManager().getChatPrefix(p);
+            team.setPrefix(prefix);
+
+            if (!team.hasEntry(p.getName())) {
+                team.addEntry(p.getName());
+            }
+        }
+    }
+
+    // Met à jour le tag d'un joueur cible sur TOUS les scoreboards (ex: lors d'un Level Up)
+    public void refreshTagForEveryone(Player target) {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (p.getScoreboard() != null) {
+                Scoreboard board = p.getScoreboard();
+                String teamName = target.getName();
+                Team team = board.getTeam(teamName);
+                if (team == null) {
+                    team = board.registerNewTeam(teamName);
+                }
+
+                // On vérifie si LE JOUEUR QUI REGARDE (p) est en FFA
+                boolean viewerInFFA = p.getWorld().getName().equals(ffaManager.getFFAWorldName());
+
+                if (viewerInFFA) {
+                    team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+                } else {
+                    team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+                }
+
+                String prefix = plugin.getLevelManager().getChatPrefix(target);
+                team.setPrefix(prefix);
+
+                if (!team.hasEntry(target.getName())) {
+                    team.addEntry(target.getName());
+                }
+            }
+        }
     }
 
     private void setupSpawnBoard(Scoreboard board, Objective obj, Player player) {
@@ -62,19 +123,19 @@ public class ScoreboardManager {
 
         Team money = board.registerNewTeam("money");
         money.addEntry("§aCoins: ");
-        money.setSuffix("§f0");
+        money.setSuffix("§f" + economyManager.getMoney(player.getUniqueId()));
         obj.getScore("§aCoins: ").setScore(8);
 
         obj.getScore("§2").setScore(7);
 
         Team online = board.registerNewTeam("online");
         online.addEntry("§bJoueurs: ");
-        online.setSuffix("§f0");
+        online.setSuffix("§f" + Bukkit.getOnlinePlayers().size());
         obj.getScore("§bJoueurs: ").setScore(6);
 
         Team ping = board.registerNewTeam("ping");
         ping.addEntry("§7Ping: ");
-        ping.setSuffix("§f0ms");
+        ping.setSuffix("§f" + player.getPing() + "ms");
         obj.getScore("§7Ping: ").setScore(5);
 
         obj.getScore("§3").setScore(4);
@@ -87,12 +148,12 @@ public class ScoreboardManager {
 
         Team streak = board.registerNewTeam("streak");
         streak.addEntry("§cSérie: ");
-        streak.setSuffix("§f0");
+        streak.setSuffix("§f" + killstreakManager.getKillstreak(player));
         obj.getScore("§cSérie: ").setScore(13);
 
         Team kills = board.registerNewTeam("kills");
         kills.addEntry("§fKills: ");
-        kills.setSuffix("§e0");
+        kills.setSuffix("§e" + killstreakManager.getSessionKills(player));
         obj.getScore("§fKills: ").setScore(12);
 
         obj.getScore("§2").setScore(11);
@@ -134,12 +195,12 @@ public class ScoreboardManager {
                     return;
                 }
 
-                boolean inFFA = player.getWorld().getName().equals(ffaManager.getFFAWorldName());
                 if (player.getScoreboard().getObjective("cod_board") == null) {
                     setScoreboard(player);
                     return;
                 }
 
+                boolean inFFA = player.getWorld().getName().equals(ffaManager.getFFAWorldName());
                 updateBoard(player, inFFA);
             }
         };
