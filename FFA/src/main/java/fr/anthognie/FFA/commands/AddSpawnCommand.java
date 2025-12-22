@@ -25,15 +25,16 @@ public class AddSpawnCommand implements CommandExecutor {
         }
 
         Player player = (Player) sender;
-        if (!player.isOp()) {
+
+        if (!player.hasPermission("ffa.admin")) {
             player.sendMessage("§cVous n'avez pas la permission.");
             return true;
         }
 
-        // CORRECTION : utilisation de addSpawn au lieu de addSpawnLocation
+        // Utilise la méthode du ConfigManager qui écrit dans ffa.yml
         configManager.addSpawn(player.getLocation());
-        player.sendMessage("§aPoint de spawn ajouté avec succès !");
 
+        player.sendMessage("§a§lFFA §8» §fPoint de spawn ajouté avec succès dans §effa.yml §f!");
         return true;
     }
 }
