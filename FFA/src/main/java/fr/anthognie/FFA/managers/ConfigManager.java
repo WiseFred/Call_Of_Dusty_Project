@@ -1,95 +1,99 @@
 package fr.anthognie.FFA.managers;
 
-import fr.anthognie.FFA.Main;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.logging.Level;
 
 public class ConfigManager {
 
-    private final Main plugin;
-    private FileConfiguration config;
-    private File configFile;
+    private final JavaPlugin plugin;
+    private File shopConfigFile;
+    private FileConfiguration shopConfig;
 
-    private List<Location> spawnLocations = new ArrayList<>();
-
-    public ConfigManager(Main plugin) {
+    public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        loadConfig();
-    }
-
-    public void loadConfig() {
-        this.configFile = new File(plugin.getDataFolder(), "ffa.yml");
-        if (!configFile.exists()) {
-            plugin.saveResource("ffa.yml", false);
-        }
-        this.config = YamlConfiguration.loadConfiguration(configFile);
-
-        loadSpawns();
-    }
-
-    public void saveConfig() {
-        try {
-            config.save(configFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Impossible de sauvegarder ffa.yml !");
-            e.printStackTrace();
-        }
+        this.plugin.saveDefaultConfig();
+        createShopConfig();
     }
 
     public FileConfiguration getConfig() {
-        return config;
+        return plugin.getConfig();
     }
 
-    private void loadSpawns() {
-        spawnLocations.clear();
-        for (String s : config.getStringList("spawn-locations")) {
-            String safeString = s.replace(',', '.');
-            String[] parts = safeString.split(";");
-            if (parts.length == 6) {
-                try {
-                    String world = parts[0];
-                    double x = Double.parseDouble(parts[1]);
-                    double y = Double.parseDouble(parts[2]);
-                    double z = Double.parseDouble(parts[3]);
-                    float yaw = Float.parseFloat(parts[4]);
-                    float pitch = Float.parseFloat(parts[5]);
-                    spawnLocations.add(new Location(Bukkit.getWorld(world), x, y, z, yaw, pitch));
-                } catch (Exception e) {
-                    plugin.getLogger().warning("Erreur au chargement d'un spawn: " + s);
-                }
-            }
-        }
-        plugin.getLogger().info("Chargé " + spawnLocations.size() + " points de spawn FFA.");
+    public void saveConfig() {
+        plugin.saveConfig();
     }
 
-    public void addSpawn(Location loc) {
-        spawnLocations.add(loc);
+    public void reloadConfig() {
+        plugin.reloadConfig();
+        reloadShopConfig();
+    }
 
-        // On remet la logique de sauvegarde directement ici
-        List<String> stringList = new ArrayList<>();
-        for (Location location : spawnLocations) {
-            String locString = location.getWorld().getName() + ";"
-                    + String.valueOf(location.getX()) + ";"
-                    + String.valueOf(location.getY()) + ";"
-                    + String.valueOf(location.getZ()) + ";"
-                    + String.valueOf(location.getYaw()) + ";"
-                    + String.valueOf(location.getPitch());
-            stringList.add(locString.replace(',', '.'));
+    private void createShopConfig() {
+        shopConfigFile = new File(plugin.getDataFolder(), "shop.yml");
+        if (!shopConfigFile.exists()) {
+            shopConfigFile.getParentFile().mkdirs();
+            plugin.saveResource("shop.yml", false);
         }
 
-        config.set("spawn-locations", stringList);
+        shopConfig = new YamlConfiguration();
+        try {
+            shopConfig.load(shopConfigFile);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Could not load shop.yml", e);
+        }
+    }
+
+    public FileConfiguration getShopConfig() {
+        if (shopConfig == null) {
+            createShopConfig();
+        }
+        return shopConfig;
+    }
+
+    public void saveShopConfig() {
+        if (shopConfig == null || shopConfigFile == null) {
+            return;
+        }
+        try {
+            getShopConfig().save(shopConfigFile);
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.SEVERE, "Could not save shop.yml", e);
+        }
+    }
+
+    public void reloadShopConfig() {
+        if (shopConfigFile == null) {
+            shopConfigFile = new File(plugin.getDataFolder(), "shop.yml");
+        }
+        shopConfig = YamlConfiguration.loadConfiguration(shopConfigFile);
+    }
+
+    public void addSpawn(Location location) {
+        List<Location> spawns = getSpawnLocations();
+        spawns.add(location);
+        plugin.getConfig().set("spawns", spawns);
         saveConfig();
     }
 
     public List<Location> getSpawnLocations() {
-        return spawnLocations;
+        List<?> list = plugin.getConfig().getList("spawns");
+        List<Location> spawns = new ArrayList<>();
+
+        if (list != null) {
+            for (Object object : list) {
+                if (object instanceof Location) {
+                    spawns.add((Location) object);
+                }
+            }
+        }
+        return spawns;
     }
 }

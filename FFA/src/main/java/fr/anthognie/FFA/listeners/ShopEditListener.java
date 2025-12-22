@@ -2,18 +2,14 @@ package fr.anthognie.FFA.listeners;
 
 import fr.anthognie.FFA.Main;
 import fr.anthognie.FFA.gui.ShopGUI;
-import fr.anthognie.Core.managers.ItemConfigManager;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,135 +18,96 @@ import java.util.UUID;
 public class ShopEditListener implements Listener {
 
     private final Main plugin;
-    private final ShopGUI shopGUI;
-    private final ItemConfigManager itemConfigManager;
-
-    private final Map<UUID, ShopEditSession> editSessions = new HashMap<>();
+    // Pour mémoriser quel item est sélectionné (Drag & Drop)
+    private final Map<UUID, Integer> selectedSlot = new HashMap<>();
 
     public ShopEditListener(Main plugin) {
         this.plugin = plugin;
-        this.shopGUI = plugin.getShopGUI();
-        this.itemConfigManager = plugin.getItemConfigManager();
     }
 
     @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
+    public void onClick(InventoryClickEvent event) {
         String title = event.getView().getTitle();
-        if (!title.equals(ShopGUI.ADMIN_TITLE)) {
-            return;
-        }
-
-        Player player = (Player) event.getWhoClicked();
-        Inventory clickedInv = event.getClickedInventory();
-        if (clickedInv == null) return;
-
-        int slot = event.getSlot();
-
-        // On vérifie si le joueur a cliqué sur un bouton spécial
-        if (slot == shopGUI.getShopConfig().getInt("special-items.close.slot") ||
-                slot == shopGUI.getShopConfig().getInt("special-items.balance.slot"))
-        {
-            event.setCancelled(true);
-            if (slot == shopGUI.getShopConfig().getInt("special-items.close.slot")) {
-                player.closeInventory();
-            }
-            return;
-        }
-
-        // --- Clic Droit pour SUPPRIMER ---
-        if (event.isRightClick() && clickedInv.getType() == InventoryType.CHEST) {
-            event.setCancelled(true);
-            shopGUI.removeShopItem(slot);
-            player.sendMessage("§cItem retiré du slot " + slot + ".");
-            shopGUI.open(player, true);
-            return;
-        }
-
-        // --- Glisser-Déposer pour AJOUTER ---
-        if (event.getCursor() != null && event.getCursor().getType() != Material.AIR &&
-                clickedInv.getType() == InventoryType.CHEST) {
-
-            event.setCancelled(true);
-
-            ItemStack itemToSell = event.getCursor().clone();
-
-            editSessions.put(player.getUniqueId(), new ShopEditSession(slot, itemToSell));
-
-            player.closeInventory();
-            player.sendMessage("§a---------------------------------");
-            player.sendMessage("§eItem placé dans le slot " + slot + ".");
-            player.sendMessage("§eVeuillez taper le PRIX de cet item dans le chat.");
-            player.sendMessage("§7(Tapez 'annuler' pour annuler)");
-            player.sendMessage("§a---------------------------------");
-        }
-    }
-
-    @EventHandler(priority = EventPriority.LOW)
-    public void onAdminChat(AsyncPlayerChatEvent event) {
-        Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
-
-        if (!editSessions.containsKey(uuid)) {
-            return;
-        }
+        if (!title.equals(ShopGUI.ADMIN_TITLE)) return;
 
         event.setCancelled(true);
-        String message = event.getMessage();
-        ShopEditSession session = editSessions.get(uuid);
+        Player player = (Player) event.getWhoClicked();
+        int slot = event.getSlot();
 
-        editSessions.remove(uuid);
+        // Si clic hors inventaire
+        if (slot < 0) return;
 
-        if (message.equalsIgnoreCase("annuler")) {
-            player.sendMessage("§cOpération annulée.");
+        // --- CAS 1 : AJOUT D'ITEM (Clic dans l'inventaire du joueur) ---
+        if (event.getClickedInventory() != event.getView().getTopInventory()) {
+            ItemStack clickedItem = event.getCurrentItem();
+            if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
+
+            // On cherche le premier slot vide dans le shop
+            int firstEmpty = event.getView().getTopInventory().firstEmpty();
+            if (firstEmpty != -1) {
+                plugin.getShopGUI().addShopItem(clickedItem, firstEmpty);
+                player.sendMessage("§aItem ajouté au shop (Prix par défaut: 100$)");
+                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1f, 1f);
+                plugin.getShopGUI().open(player, true); // Rafraîchir
+            } else {
+                player.sendMessage("§cLe shop est plein !");
+            }
             return;
         }
 
-        try {
-            int price = Integer.parseInt(message);
-            if (price < 0) {
-                player.sendMessage("§cLe prix doit être positif.");
-                return;
+        // --- CAS 2 : SUPPRESSION (Clic Droit) ---
+        if (event.isRightClick()) {
+            if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR) {
+                plugin.getShopGUI().removeShopItem(slot);
+                player.playSound(player.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 1f, 1f);
+                player.sendMessage("§cItem supprimé.");
+                plugin.getShopGUI().open(player, true);
+
+                // Si on supprime, on annule toute sélection en cours
+                selectedSlot.remove(player.getUniqueId());
             }
+            return;
+        }
 
-            String itemPath = "shop.item." + session.getSlot();
+        // --- CAS 3 : DÉPLACEMENT (Clic Gauche) ---
+        if (event.isLeftClick()) {
+            // Si on a déjà sélectionné un item
+            if (selectedSlot.containsKey(player.getUniqueId())) {
+                int oldSlot = selectedSlot.get(player.getUniqueId());
 
-            // CORRECTION ICI : Utilisation de saveItem au lieu de setItemStack
-            itemConfigManager.saveItem(itemPath, session.getItemStack());
-            // saveConfig() est inclus dans saveItem, mais on peut le laisser par sécurité ou le retirer
-            // itemConfigManager.saveConfig();
-
-            shopGUI.setShopItem(
-                    "item_slot_" + session.getSlot(),
-                    itemPath,
-                    session.getSlot(),
-                    price
-            );
-
-            player.sendMessage("§a§lSuccès ! §fItem ajouté au shop au slot " + session.getSlot() + " pour " + price + " coins.");
-
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    shopGUI.open(player, true);
+                // Si on reclique sur le même, on désélectionne
+                if (oldSlot == slot) {
+                    selectedSlot.remove(player.getUniqueId());
+                    player.sendMessage("§eSélection annulée.");
+                    return;
                 }
-            }.runTaskLater(plugin, 1L);
 
-        } catch (NumberFormatException e) {
-            player.sendMessage("§c'" + message + "' n'est pas un prix valide. Opération annulée.");
+                // Sinon, on déplace/échange
+                plugin.getShopGUI().moveShopItem(oldSlot, slot);
+                player.playSound(player.getLocation(), Sound.ENTITY_CHICKEN_EGG, 1f, 1f);
+                player.sendMessage("§aItem déplacé !");
+
+                selectedSlot.remove(player.getUniqueId());
+                plugin.getShopGUI().open(player, true);
+
+            } else {
+                // Première sélection (on ne sélectionne que si c'est un item valide)
+                if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR) {
+                    selectedSlot.put(player.getUniqueId(), slot);
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 2f);
+                    player.sendMessage("§eItem sélectionné. Cliquez sur un autre slot pour déplacer.");
+                    player.closeInventory(); // Petit hack visuel ou juste reopen ?
+                    plugin.getShopGUI().open(player, true); // On reopen pour refresh
+                }
+            }
         }
     }
 
-
-    private static class ShopEditSession {
-        private final int slot;
-        private final ItemStack itemStack;
-
-        public ShopEditSession(int slot, ItemStack itemStack) {
-            this.slot = slot;
-            this.itemStack = itemStack;
+    @EventHandler
+    public void onClose(InventoryCloseEvent event) {
+        // Nettoyage de la mémoire quand on ferme le menu
+        if (event.getView().getTitle().equals(ShopGUI.ADMIN_TITLE)) {
+            selectedSlot.remove(event.getPlayer().getUniqueId());
         }
-
-        public int getSlot() { return slot; }
-        public ItemStack getItemStack() { return itemStack; }
     }
 }

@@ -1,8 +1,10 @@
 package fr.anthognie.FFA.listeners;
 
 import fr.anthognie.FFA.Main;
+import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -17,47 +19,41 @@ public class PlayerDamageListener implements Listener {
     }
 
     @EventHandler
-    public void onDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-        Player victim = (Player) event.getEntity();
+    public void onDamage(EntityDamageByEntityEvent event) {
+        if (!event.getEntity().getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) return;
 
-        // 1. Vérif Monde FFA
-        if (!victim.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) {
-            return;
-        }
+        if (event.getEntity() instanceof Player) {
+            Player victim = (Player) event.getEntity();
 
-        // 2. Invincibilité (Spawn Protection)
-        if (plugin.getFfaManager().isInvincible(victim)) {
-            event.setCancelled(true);
-            return;
-        }
+            // 1. EFFET DE SANG (Particules Redstone Block)
+            victim.getWorld().spawnParticle(Particle.BLOCK_CRACK, victim.getLocation().add(0, 1, 0),
+                    10, 0.2, 0.2, 0.2, 0.1, Material.REDSTONE_BLOCK.createBlockData());
 
-        // 3. Gestion de la Mort "Custom" (Pour éviter l'écran de mort)
-        // On vérifie si ce coup va tuer le joueur
-        if (victim.getHealth() - event.getFinalDamage() <= 0) {
-            event.setCancelled(true); // ON ANNULE LA MORT VANILLA
+            // Si l'attaquant est un joueur
+            if (event.getDamager() instanceof Player) {
+                Player attacker = (Player) event.getDamager();
 
-            Player killer = null;
+                // Petit son de "Hit" pour confirmer qu'on a touché
+                attacker.playSound(attacker.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 0.5f, 0.5f);
 
-            // On essaie de trouver le tueur
-            if (event instanceof EntityDamageByEntityEvent) {
-                EntityDamageByEntityEvent subEvent = (EntityDamageByEntityEvent) event;
-                if (subEvent.getDamager() instanceof Player) {
-                    killer = (Player) subEvent.getDamager();
-                } else if (subEvent.getDamager() instanceof Projectile) {
-                    Projectile proj = (Projectile) subEvent.getDamager();
-                    if (proj.getShooter() instanceof Player) {
-                        killer = (Player) proj.getShooter();
-                    }
+                // Gestion Invincibilité
+                if (plugin.getFfaManager().isInvincible(victim)) {
+                    event.setCancelled(true);
                 }
             }
-
-            // On lance la séquence de respawn custom
-            plugin.getFfaManager().startRespawnSequence(victim, killer);
-            return;
         }
+    }
 
-        // 4. Si pas mort, on lance la regen (Style CoD)
-        plugin.getFfaManager().handlePlayerDamage(victim);
+    // 2. EFFET BATTEMENT DE COEUR (Santé Basse)
+    @EventHandler
+    public void onHealthCheck(EntityDamageEvent event) {
+        if (event.getEntity() instanceof Player) {
+            Player p = (Player) event.getEntity();
+            // Si la vie passe en dessous de 6PV (3 coeurs)
+            if (p.getHealth() - event.getFinalDamage() <= 6.0 && p.getHealth() - event.getFinalDamage() > 0) {
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASEDRUM, 1f, 0.5f); // BOUM... BOUM...
+                p.sendTitle("", "§4❤ DANGER ❤", 0, 10, 5);
+            }
+        }
     }
 }

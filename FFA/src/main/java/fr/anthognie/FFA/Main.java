@@ -67,8 +67,6 @@ public class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerDataListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerDamageListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(this), this);
-
-        // AJOUT DU LISTENER POUR LES CHIENS
         getServer().getPluginManager().registerEvents(new KillstreakListener(this), this);
     }
 

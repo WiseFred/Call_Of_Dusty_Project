@@ -9,27 +9,30 @@ import org.bukkit.entity.Player;
 
 public class EditShopCommand implements CommandExecutor {
 
-    private final ShopGUI shopGUI;
+    private final Main plugin;
 
     public EditShopCommand(Main plugin) {
-        this.shopGUI = plugin.getShopGUI();
+        this.plugin = plugin;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("§cCette commande est réservée aux joueurs.");
+            sender.sendMessage("§cSeul un joueur peut faire ça.");
             return true;
         }
 
         Player player = (Player) sender;
+        if (!player.hasPermission("ffa.admin")) {
+            player.sendMessage("§cVous n'avez pas la permission.");
+            return true;
+        }
 
+        ShopGUI shopGUI = plugin.getShopGUI();
+        // Ouvre en mode Admin (true)
         shopGUI.open(player, true);
 
-        player.sendMessage("§eVous êtes en mode édition du shop.");
-        player.sendMessage("§f- §aGlissez-déposez un item§f pour l'ajouter/modifier.");
-        player.sendMessage("§f- §cClic droit sur un item§f pour le supprimer.");
-
+        player.sendMessage("§eMode Édition du Shop activé.");
         return true;
     }
 }

@@ -19,11 +19,8 @@ public class KillstreakManager {
 
     private final Main plugin;
 
-    // Stats Session
     private final Map<UUID, Integer> streaks = new HashMap<>();
     private final Map<UUID, Integer> sessionKills = new HashMap<>();
-
-    // Stats Persistantes
     private final Map<UUID, Integer> totalKills = new HashMap<>();
     private final Map<UUID, Integer> totalDeaths = new HashMap<>();
 
@@ -31,11 +28,8 @@ public class KillstreakManager {
         this.plugin = plugin;
     }
 
-    // --- EVENEMENTS DE JEU ---
-
     public void handleKill(Player killer) {
         UUID id = killer.getUniqueId();
-
         int currentStreak = streaks.getOrDefault(id, 0) + 1;
         streaks.put(id, currentStreak);
         sessionKills.put(id, sessionKills.getOrDefault(id, 0) + 1);
@@ -46,19 +40,14 @@ public class KillstreakManager {
 
     public void handleDeath(Player player) {
         UUID id = player.getUniqueId();
-
-        // Message si grosse série perdue
         int lostStreak = streaks.getOrDefault(id, 0);
         if (lostStreak >= 5) {
             player.sendMessage("§cVous avez perdu votre série de " + lostStreak + " kills.");
             if (lostStreak >= 10) Bukkit.broadcastMessage("§e" + player.getName() + " a été stoppé à " + lostStreak + " kills !");
         }
-
         streaks.remove(id);
         totalDeaths.put(id, getDeaths(player) + 1);
     }
-
-    // --- GETTERS ---
 
     public int getKillstreak(Player player) { return streaks.getOrDefault(player.getUniqueId(), 0); }
     public int getSessionKills(Player player) { return sessionKills.getOrDefault(player.getUniqueId(), 0); }
@@ -72,8 +61,6 @@ public class KillstreakManager {
         double ratio = (double) k / (double) d;
         return new DecimalFormat("0.00").format(ratio);
     }
-
-    // --- SETTERS & OUTILS ---
 
     public void setTotalKills(Player player, int kills) { totalKills.put(player.getUniqueId(), kills); }
     public void setTotalDeaths(Player player, int deaths) { totalDeaths.put(player.getUniqueId(), deaths); }
@@ -97,8 +84,6 @@ public class KillstreakManager {
                         Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new
                 ));
     }
-
-    // --- BONUS DE KILLSTREAK ---
 
     private void applyBonuses(Player player, int streak) {
         // 3 KILLS : UAV (RADAR)
@@ -124,7 +109,6 @@ public class KillstreakManager {
             player.sendMessage("§6§lSÉRIE DE 7 ! §cChiens d'attaque prêts !");
             player.playSound(player.getLocation(), Sound.ENTITY_WOLF_HOWL, 1f, 1f);
 
-            // On donne l'Os Spécial
             ItemStack bone = new ItemStack(Material.BONE);
             ItemMeta meta = bone.getItemMeta();
             meta.setDisplayName("§c§lAPPEL DES CHIENS");

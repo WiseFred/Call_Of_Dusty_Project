@@ -1,14 +1,19 @@
 package fr.anthognie.FFA.listeners;
 
+import fr.anthognie.Core.managers.EconomyManager;
+import fr.anthognie.Core.managers.ItemConfigManager;
 import fr.anthognie.FFA.Main;
 import fr.anthognie.FFA.gui.ShopGUI;
+import fr.anthognie.FFA.managers.ConfigManager;
 import org.bukkit.Material;
-import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.UUID;
 
 public class ShopListener implements Listener {
 
@@ -20,67 +25,59 @@ public class ShopListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().equals(ShopGUI.GUI_TITLE)) return;
-
+        if (!event.getView().getTitle().equals(ShopGUI.TITLE)) return;
         event.setCancelled(true);
         if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) return;
 
         Player player = (Player) event.getWhoClicked();
-        int slot = event.getSlot();
 
-        if (slot == 49) { // Fermer
-            player.closeInventory();
-            return;
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+        int slot = event.getSlot();
+        ConfigManager config = plugin.getFfaConfigManager();
+        EconomyManager economy = plugin.getEconomyManager();
+        ItemConfigManager itemConfig = plugin.getItemConfigManager();
+
+        String itemKey = null;
+        if (config.getShopConfig().contains("items")) {
+            for (String key : config.getShopConfig().getConfigurationSection("items").getKeys(false)) {
+                if (config.getShopConfig().getInt("items." + key + ".slot") == slot) {
+                    itemKey = key;
+                    break;
+                }
+            }
         }
 
-        // Logique d'achat
-        ConfigurationSection items = plugin.getShopGUI().getConfig().getConfigurationSection("items");
-        if (items == null) return;
+        if (itemKey != null) {
+            int price = config.getShopConfig().getInt("items." + itemKey + ".price");
+            UUID uuid = player.getUniqueId();
 
-        for (String key : items.getKeys(false)) {
-            if (items.getInt(key + ".slot") == slot) {
-                int price = items.getInt(key + ".price");
+            // CORRECTION ECONOMY : Utilisation de getMoney()
+            // On suppose que si le joueur est connecté, il a un compte (gestion par défaut)
+            if (economy.getMoney(uuid) >= price) {
+                economy.removeMoney(uuid, price);
 
-                // 1. Vérifier l'argent
-                if (plugin.getEconomyManager().hasMoney(player.getUniqueId(), price)) {
+                String kitItemPath = config.getShopConfig().getString("items." + itemKey + ".item-config-path");
+                ItemStack itemToGive = null;
 
-                    // 2. Retirer l'argent
-                    plugin.getEconomyManager().removeMoney(player.getUniqueId(), price);
-
-                    // 3. Donner l'item
-                    // On récupère l'ID configuré (ex: "cgm:assault_rifle" ou "DIAMOND_SWORD")
-                    String itemId = items.getString(key + ".item-id");
-                    int amount = items.getInt(key + ".amount", 1);
-
-                    ItemStack toGive;
-
-                    // On essaie de récupérer via ItemConfigManager (pour les mods)
-                    ItemStack modItem = plugin.getItemConfigManager().getItemStack(itemId);
-
-                    if (modItem != null) {
-                        toGive = modItem.clone();
-                    } else {
-                        // Sinon c'est du Vanilla
-                        try {
-                            toGive = new ItemStack(Material.valueOf(itemId));
-                        } catch (IllegalArgumentException e) {
-                            // Fallback sur le matériel d'affichage si l'ID est invalide
-                            toGive = new ItemStack(Material.valueOf(items.getString(key + ".material")));
-                        }
-                    }
-
-                    toGive.setAmount(amount);
-                    player.getInventory().addItem(toGive);
-
-                    player.sendMessage("§aAchat effectué ! §7(-" + price + " coins)");
-                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
-
-                } else {
-                    player.sendMessage("§cPas assez d'argent !");
-                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+                // Sécurité si le path est null
+                if (kitItemPath != null) {
+                    itemToGive = itemConfig.getItemStack(kitItemPath);
                 }
-                break;
+
+                if (itemToGive != null) {
+                    player.getInventory().addItem(itemToGive);
+                    player.sendMessage("§aAchat effectué !");
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
+                } else {
+                    player.sendMessage("§cErreur: Item non configuré (Path: " + kitItemPath + ").");
+                    economy.addMoney(uuid, price); // Remboursement
+                }
+            } else {
+                player.sendMessage("§cPas assez d'argent !");
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
             }
+            player.closeInventory();
         }
     }
 }

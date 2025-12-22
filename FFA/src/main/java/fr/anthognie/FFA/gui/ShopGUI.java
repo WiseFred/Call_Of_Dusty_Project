@@ -2,143 +2,135 @@ package fr.anthognie.FFA.gui;
 
 import fr.anthognie.Core.utils.ItemBuilder;
 import fr.anthognie.FFA.Main;
+import fr.anthognie.FFA.managers.ConfigManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.UUID;
+import java.util.Set;
 
 public class ShopGUI {
 
-    public static final String GUI_TITLE = "§6§lArmurerie";
-    public static final String ADMIN_TITLE = "§c§lArmurerie (Édition)"; // Ajouté
-
     private final Main plugin;
-    private final File file;
-    private final FileConfiguration config;
+    public static final String TITLE = "§8Armurerie";
+    public static final String ADMIN_TITLE = "§cArmurerie (Édition)";
 
     public ShopGUI(Main plugin) {
         this.plugin = plugin;
-        this.file = new File(plugin.getDataFolder(), "shop.yml");
-        if (!file.exists()) {
-            plugin.saveResource("shop.yml", false);
-        }
-        this.config = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file);
     }
 
-    // Méthode simple (Mode Joueur)
     public void open(Player player) {
         open(player, false);
     }
 
-    // Méthode complète (Mode Admin supporté)
     public void open(Player player, boolean adminMode) {
-        String title = adminMode ? ADMIN_TITLE : GUI_TITLE;
+        String title = adminMode ? ADMIN_TITLE : TITLE;
         Inventory inv = Bukkit.createInventory(null, 54, title);
+        ConfigManager config = plugin.getFfaConfigManager();
 
-        ConfigurationSection items = config.getConfigurationSection("items");
-        if (items != null) {
-            for (String key : items.getKeys(false)) {
-                try {
-                    int slot = items.getInt(key + ".slot");
-                    String name = items.getString(key + ".name");
-                    Material material = Material.valueOf(items.getString(key + ".material"));
-                    int price = items.getInt(key + ".price");
-                    int amount = items.getInt(key + ".amount", 1);
+        if (config.getShopConfig().contains("items")) {
+            ConfigurationSection items = config.getShopConfig().getConfigurationSection("items");
+            if (items != null) {
+                for (String key : items.getKeys(false)) {
+                    String path = "items." + key;
+                    String name = config.getShopConfig().getString(path + ".name");
+                    int price = config.getShopConfig().getInt(path + ".price");
+                    int slot = config.getShopConfig().getInt(path + ".slot");
+                    String materialName = config.getShopConfig().getString(path + ".material");
 
-                    // Lore différent selon le mode
+                    Material material = Material.matchMaterial(materialName);
+                    if (material == null) material = Material.BARRIER;
+
                     ItemStack item;
                     if (adminMode) {
-                        item = ItemBuilder.create(material,
-                                name.replace("&", "§"),
-                                "§7Prix : §6" + price,
-                                "§7ID: §f" + key,
-                                "§c[Clic Droit] Supprimer");
+                        item = ItemBuilder.create(material, name,
+                                "§7Prix : §6" + price + "$",
+                                "§e----------------",
+                                "§b[Clic Gauche] §7Déplacer",
+                                "§c[Clic Droit] §7Supprimer"
+                        );
                     } else {
-                        item = ItemBuilder.create(material,
-                                name.replace("&", "§"),
-                                "§7Prix : §6" + price + " coins",
-                                "§7Quantité : §e" + amount,
-                                "",
-                                "§eClic pour acheter");
+                        item = ItemBuilder.create(material, name, "§7Prix : §6" + price + "$", "§eClique pour acheter");
                     }
-                    item.setAmount(amount);
-
-                    inv.setItem(slot, item);
-
-                } catch (Exception e) {
-                    plugin.getLogger().warning("Erreur chargement item shop: " + key);
+                    // Sécurité slot invalide
+                    if (slot >= 0 && slot < 54) {
+                        inv.setItem(slot, item);
+                    }
                 }
             }
         }
 
-        // Décoration
-        ItemStack vitre = ItemBuilder.create(Material.BLACK_STAINED_GLASS_PANE, " ");
-        for (int i : new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 45, 46, 47, 48, 50, 51, 52, 53}) {
-            if (inv.getItem(i) == null) inv.setItem(i, vitre);
-        }
-
-        inv.setItem(49, ItemBuilder.create(Material.BARRIER, "§cFermer"));
-
+        player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_CHAIN, 1f, 1f);
         player.openInventory(inv);
     }
 
-    // --- MÉTHODES D'ÉDITION (POUR SHOPEDITLISTENER) ---
+    // --- LOGIQUE D'ÉDITION ---
 
-    public FileConfiguration getShopConfig() { // Alias demandé par l'erreur
-        return config;
+    // Ajouter un item depuis l'inventaire
+    public void addShopItem(ItemStack item, int slot) {
+        String key = item.getType().name().toLowerCase() + "_" + System.currentTimeMillis(); // ID unique
+        String path = "items." + key;
+
+        String name = item.hasItemMeta() && item.getItemMeta().hasDisplayName()
+                ? item.getItemMeta().getDisplayName()
+                : item.getType().name();
+
+        ConfigManager config = plugin.getFfaConfigManager();
+        config.getShopConfig().set(path + ".name", name);
+        config.getShopConfig().set(path + ".material", item.getType().name());
+        config.getShopConfig().set(path + ".price", 100); // Prix par défaut
+        config.getShopConfig().set(path + ".slot", slot);
+
+        // On suppose que l'item Core a le même nom pour simplifier,
+        // sinon il faudra le configurer manuellement dans le fichier plus tard
+        config.getShopConfig().set(path + ".item-config-path", "kits.ffa." + item.getType().name().toLowerCase());
+
+        config.saveShopConfig();
     }
 
-    public FileConfiguration getConfig() {
-        return config;
-    }
-
+    // Supprimer un item
     public void removeShopItem(int slot) {
-        ConfigurationSection items = config.getConfigurationSection("items");
-        if (items == null) return;
+        ConfigManager config = plugin.getFfaConfigManager();
+        String key = getKeyBySlot(slot);
+        if (key != null) {
+            config.getShopConfig().set("items." + key, null);
+            config.saveShopConfig();
+        }
+    }
 
-        String keyToRemove = null;
-        for (String key : items.getKeys(false)) {
-            if (items.getInt(key + ".slot") == slot) {
-                keyToRemove = key;
-                break;
+    // Déplacer un item (Swap)
+    public void moveShopItem(int oldSlot, int newSlot) {
+        ConfigManager config = plugin.getFfaConfigManager();
+        String key1 = getKeyBySlot(oldSlot);
+        String key2 = getKeyBySlot(newSlot); // Peut être null si slot vide
+
+        if (key1 != null) {
+            // On met à jour le slot de l'item 1
+            config.getShopConfig().set("items." + key1 + ".slot", newSlot);
+
+            // Si il y avait un item sur la destination, on l'échange (il va sur oldSlot)
+            if (key2 != null) {
+                config.getShopConfig().set("items." + key2 + ".slot", oldSlot);
+            }
+
+            config.saveShopConfig();
+        }
+    }
+
+    // Utilitaire pour trouver la clé YML via le slot
+    private String getKeyBySlot(int slot) {
+        ConfigurationSection section = plugin.getFfaConfigManager().getShopConfig().getConfigurationSection("items");
+        if (section == null) return null;
+
+        for (String key : section.getKeys(false)) {
+            if (section.getInt(key + ".slot") == slot) {
+                return key;
             }
         }
-
-        if (keyToRemove != null) {
-            config.set("items." + keyToRemove, null);
-            saveConfig();
-        }
-    }
-
-    public void setShopItem(String itemId, String materialName, int price, int slot) {
-        // Génère une clé unique si nécessaire, ou utilise l'ID comme clé
-        String key = "item_" + UUID.randomUUID().toString().substring(0, 8);
-
-        // On essaie de trouver un nom sympa
-        String displayName = "§f" + itemId;
-
-        config.set("items." + key + ".name", displayName);
-        config.set("items." + key + ".material", materialName);
-        config.set("items." + key + ".item-id", itemId); // ID réel (ex: cgm:pistol)
-        config.set("items." + key + ".price", price);
-        config.set("items." + key + ".amount", 1);
-        config.set("items." + key + ".slot", slot);
-
-        saveConfig();
-    }
-
-    public void saveConfig() {
-        try {
-            config.save(file);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        return null;
     }
 }
