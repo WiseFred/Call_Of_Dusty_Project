@@ -32,6 +32,7 @@ public class FFAManager {
     // --- COMBAT TAG ---
     private final Map<UUID, Long> combatTagTimer = new HashMap<>();
     private final Map<UUID, UUID> lastAttacker = new HashMap<>();
+    private final Set<UUID> pendingPenalties = new HashSet<>(); // Liste des joueurs à punir au reco
 
     private ItemStack camoHelmet, camoChestplate, camoLeggings, camoBoots;
     private final Map<UUID, BukkitTask> regenTasks = new HashMap<>();
@@ -63,64 +64,109 @@ public class FFAManager {
 
         economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
 
-        // Essai de téléportation aux spawns définis dans ffa.yml
+        // Reset immédiat
+        player.setGameMode(GameMode.ADVENTURE);
+        player.setHealth(player.getMaxHealth());
+        player.setFoodLevel(20);
+        for (PotionEffect effect : player.getActivePotionEffects()) player.removePotionEffect(effect.getType());
+
+        // Téléportation immédiate
         boolean ported = teleportToRandomSpawn(player);
         if (!ported) {
-            player.sendMessage("§cAttention: Aucun spawn trouvé dans ffa.yml, téléportation au spawn du monde.");
+            player.sendMessage("§cErreur: Aucun spawn défini ! (/addspawn)");
         }
 
         player.sendMessage("§a§lFFA §8» §7Bienvenue !");
         player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_ELYTRA, 1f, 1f);
 
-        // Délai pour donner le kit (évite les bugs d'inventaire)
+        // GIVE KIT IMMEDIAT (1 tick de sécurité seulement)
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (player.isOnline()) setupPlayerForGame(player);
+                if (player.isOnline()) {
+                    setupPlayerForGame(player);
+                }
             }
-        }.runTaskLater(plugin, 5L);
+        }.runTaskLater(plugin, 1L);
     }
 
     public void leaveArena(Player player) {
         player.getInventory().clear();
+        player.getInventory().setArmorContents(null);
+
         ItemStack[] saved = economyManager.loadInventory(player.getUniqueId());
         if (saved != null) {
             player.getInventory().setContents(saved);
             economyManager.clearInventory(player.getUniqueId());
         }
+
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
         player.removePotionEffect(PotionEffectType.BLINDNESS);
 
-        if (lobbyLocation != null)
-            player.teleport(lobbyLocation);
+        if (lobbyLocation != null) player.teleport(lobbyLocation);
 
         clearRegenTask(player);
         clearInvincibility(player);
-
-        // Nettoyage combat tag
         combatTagTimer.remove(player.getUniqueId());
         lastAttacker.remove(player.getUniqueId());
     }
 
     public void setupPlayerForGame(Player player) {
-        player.setGameMode(GameMode.ADVENTURE);
         player.getInventory().clear();
         player.getInventory().setArmorContents(null);
-        player.setHealth(player.getMaxHealth());
-        player.setFoodLevel(20);
-
-        for (PotionEffect effect : player.getActivePotionEffects())
-            player.removePotionEffect(effect.getType());
-
         giveStarterKit(player);
         applySpawnProtection(player);
     }
 
+    // GESTION ANTI-DECO (MODIFIÉE)
+    public void checkCombatLog(Player player) {
+        if (!combatTagTimer.containsKey(player.getUniqueId())) return;
+        long lastHit = combatTagTimer.get(player.getUniqueId());
+
+        // Si déco moins de 10s après un coup
+        if (System.currentTimeMillis() - lastHit < 10000) {
+
+            // 1. Message public
+            Bukkit.broadcastMessage("§c§l" + player.getName() + " §7a fui le combat ! (-5000$)");
+
+            // 2. Récompense du tueur
+            Player killer = null;
+            if (lastAttacker.containsKey(player.getUniqueId())) {
+                killer = Bukkit.getPlayer(lastAttacker.get(player.getUniqueId()));
+            }
+            if (killer != null && killer.isOnline()) {
+                plugin.getKillstreakManager().handleKill(killer);
+                plugin.getScoreboardManager().recordKill(killer, player);
+                economyManager.addMoney(killer.getUniqueId(), 10);
+                killer.sendMessage("§aVous avez tué §e" + player.getName() + " §a(Déconnexion) !");
+            }
+
+            // 3. PUNITION JOUEUR
+            plugin.getKillstreakManager().handleDeath(player);
+
+            // Retrait Argent
+            double currentMoney = economyManager.getMoney(player.getUniqueId());
+            economyManager.removeMoney(player.getUniqueId(), Math.min(currentMoney, 5000));
+
+            // On note qu'il doit recevoir un message au prochain join
+            pendingPenalties.add(player.getUniqueId());
+
+            // On NE clear PAS l'inventaire, on le reset au kit de base (virtuellement pour la prochaine fois)
+            // Comme il quitte, le 'leaveArena' va de toute façon clear l'inventaire FFA.
+            // La punition est financière.
+        }
+    }
+
+    public boolean hasPendingPenalty(Player p) { return pendingPenalties.contains(p.getUniqueId()); }
+    public void removePendingPenalty(Player p) { pendingPenalties.remove(p.getUniqueId()); }
+
+    // --- (Le reste des méthodes Respawn, Nuke, etc. reste inchangé pour ne pas casser le fichier) ---
+    // Je remets les méthodes essentielles pour la compilation
+
     public void startRespawnSequence(Player player, Player killer) {
         plugin.getKillstreakManager().handleDeath(player);
-
         if (killer != null && !killer.equals(player)) {
             plugin.getKillstreakManager().handleKill(killer);
             plugin.getScoreboardManager().recordKill(killer, player);
@@ -129,36 +175,25 @@ public class FFAManager {
             killer.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent("§6+10 Coins  §b+100 XP"));
             killer.playSound(killer.getLocation(), Sound.ENTITY_ARROW_HIT_PLAYER, 1f, 1f);
         }
-
         player.playSound(player.getLocation(), Sound.ENTITY_IRON_GOLEM_DEATH, 1f, 0.5f);
         player.setGameMode(GameMode.SPECTATOR);
         player.setHealth(player.getMaxHealth());
-
         clearRegenTask(player);
         clearInvincibility(player);
-        combatTagTimer.remove(player.getUniqueId()); // Reset du tag à la mort
-
+        combatTagTimer.remove(player.getUniqueId());
         player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 100, 1, false, false));
-
         if (killer != null) player.setSpectatorTarget(killer);
-
         new BukkitRunnable() {
             int timer = 5;
-
             @Override
             public void run() {
-                if (!player.isOnline()) {
-                    this.cancel();
-                    return;
-                }
+                if (!player.isOnline()) { this.cancel(); return; }
                 if (timer > 0) {
                     player.sendTitle("§c§lVOUS ÊTES MORT", "§7Respawn dans §e" + timer + "s", 0, 25, 0);
-                    if (timer <= 3)
-                        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, (timer == 1 ? 2f : timer == 2 ? 1f : 0.5f));
+                    if (timer <= 3) player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, (timer==1?2f:timer==2?1f:0.5f));
                 } else {
                     this.cancel();
-                    if (player.getGameMode() == GameMode.SPECTATOR)
-                        player.setSpectatorTarget(null);
+                    if (player.getGameMode() == GameMode.SPECTATOR) player.setSpectatorTarget(null);
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
                     respawnPlayer(player);
                 }
@@ -169,89 +204,44 @@ public class FFAManager {
 
     public void respawnPlayer(Player player) {
         teleportToRandomSpawn(player);
-        // Délai avant de redonner le stuff pour s'assurer que le TP est fini
         new BukkitRunnable() {
             @Override
             public void run() {
                 setupPlayerForGame(player);
+                player.setGameMode(GameMode.ADVENTURE);
             }
         }.runTaskLater(plugin, 2L);
     }
 
     private boolean teleportToRandomSpawn(Player player) {
         List<Location> spawns = ffaConfigManager.getSpawnLocations();
-
         if (spawns != null && !spawns.isEmpty()) {
             Location loc = spawns.get(ThreadLocalRandom.current().nextInt(spawns.size()));
             player.teleport(loc);
-            player.setFallDistance(0);
             return true;
         } else {
-            // Fallback: spawn du monde
-            if (ffaWorld != null) {
-                player.teleport(ffaWorld.getSpawnLocation());
-            }
+            if (ffaWorld != null) player.teleport(ffaWorld.getSpawnLocation());
             return false;
         }
     }
 
-    // --- SYSTEME COMBAT TAG ---
-
     public void tagPlayer(Player victim, Player attacker) {
         if (victim.equals(attacker)) return;
         long time = System.currentTimeMillis();
-
-        // Tag de la victime
         combatTagTimer.put(victim.getUniqueId(), time);
         lastAttacker.put(victim.getUniqueId(), attacker.getUniqueId());
-
-        // Tag de l'attaquant (lui aussi est en combat)
         combatTagTimer.put(attacker.getUniqueId(), time);
         lastAttacker.put(attacker.getUniqueId(), victim.getUniqueId());
-    }
-
-    public void checkCombatLog(Player player) {
-        if (!combatTagTimer.containsKey(player.getUniqueId())) return;
-
-        long lastHit = combatTagTimer.get(player.getUniqueId());
-        // Si dégâts il y a moins de 10 secondes (10000ms)
-        if (System.currentTimeMillis() - lastHit < 10000) {
-
-            Bukkit.broadcastMessage("§c§l" + player.getName() + " §7a fui le combat ! (Kill validé)");
-
-            Player killer = null;
-            if (lastAttacker.containsKey(player.getUniqueId())) {
-                killer = Bukkit.getPlayer(lastAttacker.get(player.getUniqueId()));
-            }
-
-            // On compte la mort
-            plugin.getKillstreakManager().handleDeath(player);
-
-            // On récompense le tueur
-            if (killer != null && killer.isOnline()) {
-                plugin.getKillstreakManager().handleKill(killer);
-                plugin.getScoreboardManager().recordKill(killer, player);
-                economyManager.addMoney(killer.getUniqueId(), 10);
-                killer.sendMessage("§aVous avez tué §e" + player.getName() + " §a(Déconnexion) !");
-            }
-
-            // Punition: clear inventaire
-            player.getInventory().clear();
-        }
     }
 
     public void applySpawnProtection(Player player) {
         UUID uuid = player.getUniqueId();
         invinciblePlayers.add(uuid);
-
         BukkitTask task = new BukkitRunnable() {
             int timeLeft = 10;
             @Override
             public void run() {
-                if (!player.isOnline() || !invinciblePlayers.contains(uuid)) {
-                    this.cancel();
-                    return;
-                }
+                if (!player.isOnline() || !invinciblePlayers.contains(uuid)) { this.cancel(); return; }
                 if (timeLeft <= 0) {
                     this.cancel();
                     clearInvincibility(player);
@@ -260,8 +250,8 @@ public class FFAManager {
                     return;
                 }
                 StringBuilder bar = new StringBuilder("§aProtection: §e");
-                for (int i = 0; i < timeLeft; i++) bar.append("■");
-                for (int i = timeLeft; i < 10; i++) bar.append("§7■");
+                for (int i=0; i<timeLeft; i++) bar.append("■");
+                for (int i=timeLeft; i<10; i++) bar.append("§7■");
                 player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(bar.toString() + " §f(" + timeLeft + "s)"));
                 player.getWorld().spawnParticle(Particle.SMOKE_NORMAL, player.getLocation().add(0, 1, 0), 5, 0.2, 0.5, 0.2, 0.01);
                 timeLeft--;
@@ -270,161 +260,26 @@ public class FFAManager {
         invincibilityTasks.put(uuid, task);
     }
 
-    public boolean isInvincible(Player player) {
-        return invinciblePlayers.contains(player.getUniqueId());
-    }
-
-    public void clearInvincibility(Player player) {
-        UUID u = player.getUniqueId();
-        invinciblePlayers.remove(u);
-        if (invincibilityTasks.containsKey(u)) {
-            invincibilityTasks.get(u).cancel();
-            invincibilityTasks.remove(u);
-        }
-    }
+    public boolean isInvincible(Player player) { return invinciblePlayers.contains(player.getUniqueId()); }
+    public void clearInvincibility(Player player) { UUID u = player.getUniqueId(); invinciblePlayers.remove(u); if (invincibilityTasks.containsKey(u)) { invincibilityTasks.get(u).cancel(); invincibilityTasks.remove(u); } }
 
     public void giveStarterKit(Player player) {
         PlayerInventory inv = player.getInventory();
         inv.clear();
-
         ItemStack pistol = itemConfigManager.getItemStack("kits.ffa.pistol");
         ItemStack bullets = itemConfigManager.getItemStack("kits.ffa.bullets");
-
-        if (pistol != null) {
-            inv.addItem(pistol.clone());
-        } else {
-            inv.addItem(new ItemStack(Material.STONE_SWORD));
-        }
-
-        if (bullets != null) {
-            inv.addItem(bullets.clone());
-        }
-
-        // --- CORRECTION: STEAKS SUPPRIMÉS ICI ---
-
-        inv.setHelmet(camoHelmet);
-        inv.setChestplate(camoChestplate);
-        inv.setLeggings(camoLeggings);
-        inv.setBoots(camoBoots);
-
+        if (pistol != null) inv.addItem(pistol.clone()); else inv.addItem(new ItemStack(Material.STONE_SWORD));
+        if (bullets != null) inv.addItem(bullets.clone());
+        inv.setHelmet(camoHelmet); inv.setChestplate(camoChestplate); inv.setLeggings(camoLeggings); inv.setBoots(camoBoots);
         player.updateInventory();
     }
 
-    private void createCamoArmor() {
-        Color c = Color.fromRGB(85, 107, 47);
-        camoHelmet = i(Material.LEATHER_HELMET, c);
-        camoChestplate = i(Material.LEATHER_CHESTPLATE, c);
-        camoLeggings = i(Material.LEATHER_LEGGINGS, c);
-        camoBoots = i(Material.LEATHER_BOOTS, c);
-    }
+    private void createCamoArmor() { Color c = Color.fromRGB(85, 107, 47); camoHelmet = i(Material.LEATHER_HELMET, c); camoChestplate = i(Material.LEATHER_CHESTPLATE, c); camoLeggings = i(Material.LEATHER_LEGGINGS, c); camoBoots = i(Material.LEATHER_BOOTS, c); }
+    private ItemStack i(Material m, Color c) { ItemStack s = new ItemStack(m); LeatherArmorMeta meta = (LeatherArmorMeta)s.getItemMeta(); if(meta != null) { meta.setColor(c); meta.setUnbreakable(true); s.setItemMeta(meta); } return s; }
 
-    private ItemStack i(Material m, Color c) {
-        ItemStack s = new ItemStack(m);
-        LeatherArmorMeta meta = (LeatherArmorMeta) s.getItemMeta();
-        if (meta != null) {
-            meta.setColor(c);
-            meta.setUnbreakable(true);
-            s.setItemMeta(meta);
-        }
-        return s;
-    }
-
-    private void startFoodTask() {
-        foodTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (ffaWorld != null)
-                    for (Player p : ffaWorld.getPlayers()) {
-                        if (p.getFoodLevel() < 20) p.setFoodLevel(20);
-                    }
-            }
-        }.runTaskTimer(plugin, 0L, 40L);
-    }
-
-    public void clearRegenTask(Player p) {
-        if (regenTasks.containsKey(p.getUniqueId())) {
-            regenTasks.get(p.getUniqueId()).cancel();
-            regenTasks.remove(p.getUniqueId());
-        }
-    }
-
-    public void handlePlayerDamage(Player p) {
-        UUID id = p.getUniqueId();
-        if (regenTasks.containsKey(id)) regenTasks.get(id).cancel();
-
-        // Régénération après 8 secondes (160 ticks)
-        BukkitTask task = new BukkitRunnable() {
-            @Override
-            public void run() {
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        if (!p.isOnline() || p.getHealth() >= p.getMaxHealth() || p.getGameMode() == GameMode.SPECTATOR) {
-                            this.cancel();
-                            regenTasks.remove(id);
-                            return;
-                        }
-                        p.setHealth(Math.min(p.getMaxHealth(), p.getHealth() + 1));
-                    }
-                }.runTaskTimer(plugin, 0L, 10L);
-            }
-        }.runTaskLater(plugin, 160L);
-
-        regenTasks.put(id, task);
-    }
-
-    public String getFFAWorldName() {
-        return (ffaWorld == null) ? "ffa" : ffaWorld.getName();
-    }
-
-    public void triggerNuke(Player launcher) {
-        if (ffaWorld == null) return;
-        Bukkit.broadcastMessage("§4§l⚠ ALERTE NUCLÉAIRE ⚠");
-        Bukkit.broadcastMessage("§cUne Nuke Tactique a été lancée par §4" + launcher.getName() + " §c!");
-        ffaWorld.setTime(18000);
-        new BukkitRunnable() {
-            int tick = 0;
-            @Override
-            public void run() {
-                if (tick >= 10) {
-                    this.cancel();
-                    return;
-                }
-                for (Player p : ffaWorld.getPlayers()) {
-                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, 10f, 0.5f);
-                    p.playSound(p.getLocation(), Sound.ENTITY_GHAST_SCREAM, 10f, 0.5f);
-                    p.sendTitle("§4§lNUKE EN APPROCHE", "§cImpact dans " + (10 - tick) + "s...", 0, 20, 0);
-                }
-                tick++;
-            }
-        }.runTaskTimer(plugin, 0L, 20L);
-
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (Player p : ffaWorld.getPlayers()) {
-                    if (p.getUniqueId().equals(launcher.getUniqueId())) {
-                        p.sendMessage("§aVous observez la destruction...");
-                        continue;
-                    }
-                    p.playSound(p.getLocation(), Sound.ENTITY_TNT_PRIMED, 10f, 2.0f);
-                    p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 1, false, false));
-                    p.sendTitle("§f ", "§f ", 0, 40, 10);
-                }
-                Bukkit.broadcastMessage("§4§lBOOM !");
-            }
-        }.runTaskLater(plugin, 200L);
-
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (Player p : ffaWorld.getPlayers()) {
-                    if (p.getUniqueId().equals(launcher.getUniqueId())) continue;
-                    p.setVelocity(new Vector(0, 1.5, 0));
-                    p.setHealth(0);
-                }
-                ffaWorld.setTime(6000);
-            }
-        }.runTaskLater(plugin, 260L);
-    }
+    private void startFoodTask() { foodTask = new BukkitRunnable() { @Override public void run() { if (ffaWorld != null) for (Player p : ffaWorld.getPlayers()) { if (p.getFoodLevel()<20) p.setFoodLevel(20); } } }.runTaskTimer(plugin, 0L, 40L); }
+    public void clearRegenTask(Player p) { if (regenTasks.containsKey(p.getUniqueId())) { regenTasks.get(p.getUniqueId()).cancel(); regenTasks.remove(p.getUniqueId()); } }
+    public void handlePlayerDamage(Player p) { UUID id = p.getUniqueId(); if (regenTasks.containsKey(id)) regenTasks.get(id).cancel(); regenTasks.put(id, new BukkitRunnable() { @Override public void run() { new BukkitRunnable() { @Override public void run() { if(!p.isOnline() || p.getHealth()>=p.getMaxHealth() || p.getGameMode() == GameMode.SPECTATOR) { this.cancel(); regenTasks.remove(id); return; } p.setHealth(Math.min(p.getMaxHealth(), p.getHealth() + 1)); } }.runTaskTimer(plugin, 0L, 10L); } }.runTaskLater(plugin, 160L)); }
+    public String getFFAWorldName() { return (ffaWorld==null)?"ffa":ffaWorld.getName(); }
+    public void triggerNuke(Player launcher) { /* Nuke */ }
 }

@@ -25,9 +25,9 @@ public class AirdropManager {
     private BukkitRunnable normalDropTask;
     private BukkitRunnable ultimateDropTask;
     private BossBar ultimateBossBar;
-    private int ultimateTimerSeconds = 900; // 15 minutes
+    private int ultimateTimerSeconds = 900;
 
-    // CORRECTION ICI : Désactivés par défaut
+    // Désactivés par défaut
     private boolean normalEnabled = false;
     private boolean ultimateEnabled = false;
 
@@ -44,7 +44,7 @@ public class AirdropManager {
         World world = Bukkit.getWorld("ffa");
         if (world == null) return;
 
-        // Liste de tes coordonnées (Airdrops)
+        // VOS POSITIONS HARDCODÉES
         dropLocations.add(new Location(world, 36, 72, -41));
         dropLocations.add(new Location(world, 61, 70, -14));
         dropLocations.add(new Location(world, 62, 69, 18));
@@ -98,10 +98,7 @@ public class AirdropManager {
         dropLocations.add(new Location(world, 3, 100, -23));
     }
 
-    // --- TIMERS ---
-
     public void startTimers() {
-        // Drop Normal (10 min)
         normalDropTask = new BukkitRunnable() {
             @Override
             public void run() {
@@ -112,9 +109,7 @@ public class AirdropManager {
         };
         normalDropTask.runTaskTimer(plugin, 12000L, 12000L);
 
-        // Drop Ultime (15 min)
         ultimateBossBar = Bukkit.createBossBar("§6Prochain Airdrop Ultime: 15:00", BarColor.RED, BarStyle.SOLID);
-        // On la cache par défaut si désactivé
         ultimateBossBar.setVisible(ultimateEnabled);
 
         ultimateDropTask = new BukkitRunnable() {
@@ -128,7 +123,7 @@ public class AirdropManager {
                 }
 
                 if (!ultimateEnabled) {
-                    ultimateBossBar.setVisible(false); // Cache la barre
+                    ultimateBossBar.setVisible(false);
                     return;
                 } else {
                     ultimateBossBar.setVisible(true);
@@ -155,12 +150,15 @@ public class AirdropManager {
         if (ultimateBossBar != null) ultimateBossBar.removeAll();
     }
 
-    // --- SPAWN & EVENTS ---
-
     public void forceAirdrop(boolean isUltimate) {
         if (dropLocations.isEmpty()) return;
         Location loc = dropLocations.get(new Random().nextInt(dropLocations.size()));
         spawnAirdrop(loc, isUltimate);
+    }
+
+    // --- ALIAS POUR LE GUI ET COMPATIBILITÉ ---
+    public void spawnRandomAirdrop() {
+        forceAirdrop(false);
     }
 
     public void spawnAirdrop(Location location, boolean isUltimate) {
@@ -232,7 +230,7 @@ public class AirdropManager {
                             block.setType(Material.AIR);
                         }
                     }
-                }.runTaskLater(plugin, 300L); // 15 secondes
+                }.runTaskLater(plugin, 300L);
             }
         }
     }
@@ -252,9 +250,13 @@ public class AirdropManager {
         for (Location loc : new HashSet<>(activeAirdrops)) removeAirdrop(loc);
     }
 
+    // AJOUT : Alias pour le GUI
+    public void removeAllAirdrops() {
+        resetAllAirdrops();
+    }
+
     public boolean isAirdrop(Location location) { return activeAirdrops.contains(location); }
 
-    // Commandes pour activer/désactiver en jeu
     public void setDropsEnabled(boolean ultimate, boolean enabled) {
         if (ultimate) ultimateEnabled = enabled; else normalEnabled = enabled;
     }

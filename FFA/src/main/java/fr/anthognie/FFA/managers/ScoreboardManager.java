@@ -30,7 +30,6 @@ public class ScoreboardManager {
         startUpdater();
     }
 
-    // CORRECTION: La méthode s'appelle bien setScoreboard pour correspondre au Listener
     public void setScoreboard(Player player) {
         Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
         Objective obj = board.registerNewObjective("cod_board", Criteria.DUMMY, "§6§lCALL OF DUSTY");
@@ -39,8 +38,7 @@ public class ScoreboardManager {
         player.setScoreboard(board);
         boards.put(player.getUniqueId(), board);
 
-        // Mise à jour immédiate à la connexion
-        updateScoreboard(player, getTopKillstreakPlayers());
+        updateBoard(player);
     }
 
     public void removePlayerScoreboard(Player player) {
@@ -48,31 +46,43 @@ public class ScoreboardManager {
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
-    // CORRECTION : J'ai remis la méthode recordKill qui manquait !
     public void recordKill(Player killer, Player victim) {
-        // On recalcule le top pour être à jour
-        List<Player> top = getTopKillstreakPlayers();
-        updateScoreboard(killer, top);
-        updateScoreboard(victim, top);
+        updateBoard(killer);
+        updateBoard(victim);
     }
 
-    // Méthode utilitaire pour avoir le Top 3
+    // Méthode requise par le StatsListener
+    public void resetDeaths(Player player) {
+        player.setStatistic(Statistic.DEATHS, 0);
+        killstreakManager.setTotalDeaths(player, 0);
+        updateBoard(player);
+    }
+
+    // Méthode requise par le StatsListener
+    public void updateBoard(Player player) {
+        updateScoreboard(player, getTopKillstreakPlayers());
+    }
+
+    // --- GESTION DU TOP SÉRIES (KILLSTREAK) ---
     private List<Player> getTopKillstreakPlayers() {
         List<Player> topPlayers = new ArrayList<>();
         World ffaWorld = Bukkit.getWorld(ffaManager.getFFAWorldName());
 
         if (ffaWorld != null) {
             topPlayers.addAll(ffaWorld.getPlayers());
-            // Tri décroissant par killstreak
-            topPlayers.sort((p1, p2) -> Integer.compare(killstreakManager.getKillstreak(p2), killstreakManager.getKillstreak(p1)));
-            // On retire ceux qui ont 0 ou moins
+            // On trie du plus grand killstreak au plus petit
+            topPlayers.sort((p1, p2) -> Integer.compare(
+                    killstreakManager.getKillstreak(p2),
+                    killstreakManager.getKillstreak(p1)
+            ));
+            // On retire ceux qui n'ont pas de série (<= 0)
             topPlayers.removeIf(p -> killstreakManager.getKillstreak(p) <= 0);
         }
         return topPlayers;
     }
 
     private void updateScoreboard(Player player, List<Player> topKillstreaks) {
-        // Si le joueur n'est pas en FFA, on lui retire son scoreboard personnalisé
+        // Vérif monde
         if (!player.getWorld().getName().equals(ffaManager.getFFAWorldName())) {
             if (player.getScoreboard().getObjective("cod_board") != null) {
                 player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
@@ -80,7 +90,6 @@ public class ScoreboardManager {
             return;
         }
 
-        // Si le joueur est en FFA mais a perdu son board (ex: déco/reco rapide), on le remet
         if (!boards.containsKey(player.getUniqueId()) || player.getScoreboard().getObjective("cod_board") == null) {
             setScoreboard(player);
             return;
@@ -90,14 +99,12 @@ public class ScoreboardManager {
         Objective obj = board.getObjective("cod_board");
         if (obj == null) return;
 
-        // Données
         int kills = player.getStatistic(Statistic.PLAYER_KILLS);
         int deaths = player.getStatistic(Statistic.DEATHS);
         int streak = killstreakManager.getKillstreak(player);
-        double money = economyManager.getMoney(player.getUniqueId()); // getMoney corrigé
+        double money = economyManager.getMoney(player.getUniqueId());
         double ratio = (deaths == 0) ? kills : (double) kills / deaths;
 
-        // Lignes
         List<String> lines = new ArrayList<>();
         lines.add("§8§m--------------------");
         lines.add("§fJoueur : §7" + player.getName());
@@ -110,11 +117,12 @@ public class ScoreboardManager {
         lines.add("§fSérie : §b" + streak);
         lines.add("§3");
 
-        // Section TOP 3
+        // --- AFFICHAGE DU TOP SÉRIES ---
         lines.add("§6§lTOP SÉRIES:");
         if (topKillstreaks.isEmpty()) {
             lines.add("§7Aucune en cours");
         } else {
+            // Affiche les 3 premiers
             for (int i = 0; i < Math.min(3, topKillstreaks.size()); i++) {
                 Player p = topKillstreaks.get(i);
                 int s = killstreakManager.getKillstreak(p);
@@ -126,7 +134,7 @@ public class ScoreboardManager {
         lines.add("§ewww.callofdusty.fr");
         lines.add("§8§m-------------------- ");
 
-        // Nettoyage et Application
+        // Nettoyage des anciens scores pour éviter les doublons/scintillements
         for (String entry : board.getEntries()) {
             board.resetScores(entry);
         }
@@ -142,7 +150,7 @@ public class ScoreboardManager {
         new BukkitRunnable() {
             @Override
             public void run() {
-                // On calcule le top 3 une seule fois pour tout le monde
+                // On calcule le Top une seule fois par cycle
                 List<Player> topPlayers = getTopKillstreakPlayers();
 
                 for (UUID uuid : boards.keySet()) {
@@ -152,6 +160,6 @@ public class ScoreboardManager {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L); // 1 seconde
+        }.runTaskTimer(plugin, 0L, 20L); // Mise à jour toutes les secondes
     }
 }

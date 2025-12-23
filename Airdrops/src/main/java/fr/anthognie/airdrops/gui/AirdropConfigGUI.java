@@ -1,70 +1,46 @@
 package fr.anthognie.airdrops.gui;
 
-import fr.anthognie.Core.utils.ItemBuilder;
 import fr.anthognie.airdrops.Main;
-import fr.anthognie.airdrops.managers.AirdropManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.Arrays;
 
 public class AirdropConfigGUI {
 
-    // CORRECTION : Renommé de TITLE à GUI_TITLE pour correspondre au Listener
-    public static final String GUI_TITLE = "§8Gestion des Airdrops";
     private final Main plugin;
 
     public AirdropConfigGUI(Main plugin) {
         this.plugin = plugin;
     }
 
-    // Constructeur sans argument pour compatibilité si nécessaire
-    public AirdropConfigGUI() {
-        this.plugin = Main.getInstance();
-    }
-
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, GUI_TITLE);
-        AirdropManager manager = plugin.getAirdropManager();
+        Inventory inv = Bukkit.createInventory(null, 27, "§8Config Airdrops");
 
-        boolean normalOn = manager.areDropsEnabled(false);
-        boolean ultimateOn = manager.areDropsEnabled(true);
+        // Bouton Loots Normaux
+        inv.setItem(10, createItem(Material.CHEST, "§eLoots Normaux", "§7Modifier les items des", "§7airdrops classiques (10min)"));
 
-        // État Normal
-        inv.setItem(10, ItemBuilder.create(Material.CHEST,
-                "§eAirdrops Normaux",
-                "§7État: " + (normalOn ? "§aACTIVÉ" : "§cDÉSACTIVÉ"),
-                "§7Clic pour basculer"
-        ));
+        // Bouton Loots Ultimes
+        inv.setItem(12, createItem(Material.ENDER_CHEST, "§6Loots Ultimes", "§7Modifier les items des", "§7airdrops ultimes (15min)"));
 
-        // État Ultime
-        inv.setItem(12, ItemBuilder.create(Material.ENDER_CHEST,
-                "§5Airdrops Ultimes",
-                "§7État: " + (ultimateOn ? "§aACTIVÉ" : "§cDÉSACTIVÉ"),
-                "§7Clic pour basculer"
-        ));
-
-        // Forcer Drop
-        inv.setItem(14, ItemBuilder.create(Material.TRIPWIRE_HOOK,
-                "§6Forcer un Airdrop",
-                "§7Clic Gauche: §eNormal",
-                "§7Clic Droit: §5Ultime"
-        ));
-
-        // Gérer les Loots
-        inv.setItem(16, ItemBuilder.create(Material.BOOK,
-                "§bGérer les Loots",
-                "§7Modifier les kits et items",
-                "§7contenus dans les airdrops"
-        ));
-
-        // Vitres
-        ItemStack filler = ItemBuilder.create(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i = 0; i < inv.getSize(); i++) {
-            if (inv.getItem(i) == null) inv.setItem(i, filler);
-        }
+        inv.setItem(14, createItem(Material.BEACON, "§bForce Spawn", "§7Faire apparaître un airdrop maintenant"));
+        inv.setItem(16, createItem(Material.TNT, "§c§lSupprimer Tout", "§7Retire tous les airdrops actifs"));
 
         player.openInventory(inv);
+    }
+
+    private ItemStack createItem(Material mat, String name, String... lore) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(name);
+            meta.setLore(Arrays.asList(lore));
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 }

@@ -4,6 +4,7 @@ import fr.anthognie.FFA.Main;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.Statistic;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -49,6 +50,15 @@ public class KillstreakManager {
         totalDeaths.put(id, getDeaths(player) + 1);
     }
 
+    // AJOUT : Méthode requise par StatsListener
+    public void resetKills(Player player) {
+        UUID id = player.getUniqueId();
+        streaks.remove(id);
+        sessionKills.put(id, 0);
+        totalKills.put(id, 0);
+        player.setStatistic(Statistic.PLAYER_KILLS, 0);
+    }
+
     public int getKillstreak(Player player) { return streaks.getOrDefault(player.getUniqueId(), 0); }
     public int getSessionKills(Player player) { return sessionKills.getOrDefault(player.getUniqueId(), 0); }
     public int getTotalKills(Player player) { return totalKills.getOrDefault(player.getUniqueId(), 0); }
@@ -86,39 +96,31 @@ public class KillstreakManager {
     }
 
     private void applyBonuses(Player player, int streak) {
-        // 3 KILLS : UAV (RADAR)
         if (streak == 3) {
             player.sendMessage("§e§lSÉRIE DE 3 ! §bUAV (Radar) activé !");
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
-
             int count = 0;
             for (Entity e : player.getNearbyEntities(50, 50, 50)) {
                 if (e instanceof Player) {
                     Player target = (Player) e;
                     if (!target.getGameMode().name().contains("SPECTATOR")) {
-                        target.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 0, false, false)); // 10s
+                        target.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 0, false, false));
                         count++;
                     }
                 }
             }
             player.sendMessage("§7" + count + " ennemis détectés.");
         }
-
-        // 7 KILLS : CHIENS D'ATTAQUE
         else if (streak == 7) {
             player.sendMessage("§6§lSÉRIE DE 7 ! §cChiens d'attaque prêts !");
             player.playSound(player.getLocation(), Sound.ENTITY_WOLF_HOWL, 1f, 1f);
-
             ItemStack bone = new ItemStack(Material.BONE);
             ItemMeta meta = bone.getItemMeta();
             meta.setDisplayName("§c§lAPPEL DES CHIENS");
             meta.setLore(Arrays.asList("§7Clic droit pour lancer", "§73 chiens d'attaque."));
             bone.setItemMeta(meta);
-
             player.getInventory().addItem(bone);
         }
-
-        // 25 KILLS : NUKE
         else if (streak == 25) {
             plugin.getFfaManager().triggerNuke(player);
         }

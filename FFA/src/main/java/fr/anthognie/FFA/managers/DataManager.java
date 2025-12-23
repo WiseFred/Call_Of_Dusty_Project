@@ -57,10 +57,15 @@ public class DataManager {
         plugin.getKillstreakManager().setTotalDeaths(player, deaths);
     }
 
-    // Sauvegarde de tout le monde (utile pour le /stop)
+    // Sauvegarde de tous les joueurs en ligne
     public void saveAllOnline() {
         for (Player p : plugin.getServer().getOnlinePlayers()) {
             savePlayer(p);
         }
+    }
+
+    // --- CORRECTION : Méthode Alias requise par le Main ---
+    public void saveAllData() {
+        saveAllOnline();
     }
 }
