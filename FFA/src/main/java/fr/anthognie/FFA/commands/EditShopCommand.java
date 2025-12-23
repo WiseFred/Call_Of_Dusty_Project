@@ -18,21 +18,24 @@ public class EditShopCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("§cSeul un joueur peut faire ça.");
+            sender.sendMessage("§cSeul un joueur peut exécuter cette commande.");
             return true;
         }
 
         Player player = (Player) sender;
-        if (!player.hasPermission("ffa.admin")) {
+
+        if (!player.hasPermission("ffa.admin.editshop")) {
             player.sendMessage("§cVous n'avez pas la permission.");
             return true;
         }
 
         ShopGUI shopGUI = plugin.getShopGUI();
-        // Ouvre en mode Admin (true)
-        shopGUI.open(player, true);
+        shopGUI.open(player, true); // Ouvre en mode ADMIN (true)
+        player.sendMessage("§eMode édition du shop activé.");
+        player.sendMessage("§7- Clic inventaire: Ajouter item");
+        player.sendMessage("§7- Clic gauche: Déplacer");
+        player.sendMessage("§7- Clic droit: Supprimer");
 
-        player.sendMessage("§eMode Édition du Shop activé.");
         return true;
     }
 }

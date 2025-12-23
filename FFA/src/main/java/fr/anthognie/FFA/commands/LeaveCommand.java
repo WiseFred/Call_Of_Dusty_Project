@@ -16,11 +16,7 @@ public class LeaveCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cSeul un joueur peut exécuter cette commande.");
-            return true;
-        }
-
+        if (!(sender instanceof Player)) return true;
         Player player = (Player) sender;
 
         if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) {
@@ -29,7 +25,6 @@ public class LeaveCommand implements CommandExecutor {
         } else {
             player.sendMessage("§cVous n'êtes pas dans l'arène FFA.");
         }
-
         return true;
     }
 }

@@ -12,6 +12,7 @@ import java.util.Arrays;
 
 public class FFAConfigGUI {
 
+    public static final String GUI_TITLE = "§8Configuration FFA";
     private final Main plugin;
 
     public FFAConfigGUI(Main plugin) {
@@ -19,12 +20,11 @@ public class FFAConfigGUI {
     }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, "§8Configuration FFA");
+        Inventory inv = Bukkit.createInventory(null, 27, GUI_TITLE);
 
-        // Seulement les options utiles demandées
-        inv.setItem(11, createItem(Material.EMERALD, "§aÉditer le Shop", "§7Modifier les prix et items"));
-        inv.setItem(13, createItem(Material.PLAYER_HEAD, "§eGérer les Joueurs", "§7Reset stats, modifier kills/morts..."));
-        inv.setItem(15, createItem(Material.COMPASS, "§bDéfinir Spawns", "§7Utilisez /addspawn en jeu pour ajouter un point ici"));
+        inv.setItem(11, createItem(Material.EMERALD, "§aÉditer le Shop", "§7Modifier les prix"));
+        inv.setItem(13, createItem(Material.PLAYER_HEAD, "§eGérer les Joueurs", "§7Stats & Reset"));
+        inv.setItem(15, createItem(Material.COMPASS, "§bDéfinir Spawns", "§7Utilisez /addspawn"));
 
         player.openInventory(inv);
     }
@@ -32,11 +32,9 @@ public class FFAConfigGUI {
     private ItemStack createItem(Material mat, String name, String... lore) {
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(Arrays.asList(lore));
-            item.setItemMeta(meta);
-        }
+        meta.setDisplayName(name);
+        meta.setLore(Arrays.asList(lore));
+        item.setItemMeta(meta);
         return item;
     }
 }

@@ -24,95 +24,41 @@ public class MoneyCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage("§cSeul un joueur peut voir son propre solde.");
-                return true;
-            }
+            if (!(sender instanceof Player)) return true;
             Player player = (Player) sender;
-            int balance = economyManager.getMoney(player.getUniqueId());
+            int balance = (int) economyManager.getMoney(player.getUniqueId());
             player.sendMessage("§aVotre solde : §e" + balance + " coins.");
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("give")) {
+        String sub = args[0];
+        if (args.length >= 3 && (sub.equalsIgnoreCase("give") || sub.equalsIgnoreCase("set") || sub.equalsIgnoreCase("take"))) {
             if (!sender.hasPermission("core.admin.money")) {
-                sender.sendMessage("§cVous n'avez pas la permission.");
-                return true;
-            }
-            if (args.length < 3) {
-                sender.sendMessage("§cUsage: /money give <joueur> <montant>");
+                sender.sendMessage("§cPas de permission.");
                 return true;
             }
             OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
             try {
-                int amount = Integer.parseInt(args[2]);
-                economyManager.addMoney(target.getUniqueId(), amount);
-                sender.sendMessage("§aVous avez donné §e" + amount + " coins §aà " + target.getName());
-                if (target.isOnline()) {
-                    ((Player) target).sendMessage("§aVous avez reçu §e" + amount + " coins.");
-                }
+                double amount = Double.parseDouble(args[2]);
+                if (sub.equalsIgnoreCase("give")) economyManager.addMoney(target.getUniqueId(), amount);
+                if (sub.equalsIgnoreCase("take")) economyManager.removeMoney(target.getUniqueId(), amount);
+                if (sub.equalsIgnoreCase("set")) economyManager.setMoney(target.getUniqueId(), amount);
+                sender.sendMessage("§aOpération réussie sur " + target.getName());
             } catch (NumberFormatException e) {
                 sender.sendMessage("§cMontant invalide.");
             }
             return true;
         }
-
-        if (args[0].equalsIgnoreCase("set")) {
-            if (!sender.hasPermission("core.admin.money")) {
-                sender.sendMessage("§cVous n'avez pas la permission.");
-                return true;
-            }
-            if (args.length < 3) {
-                sender.sendMessage("§cUsage: /money set <joueur> <montant>");
-                return true;
-            }
-            OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-            try {
-                int amount = Integer.parseInt(args[2]);
-                economyManager.setMoney(target.getUniqueId(), amount);
-                sender.sendMessage("§aSolde de " + target.getName() + " défini à §e" + amount + " coins.");
-            } catch (NumberFormatException e) {
-                sender.sendMessage("§cMontant invalide.");
-            }
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("take")) {
-            if (!sender.hasPermission("core.admin.money")) {
-                sender.sendMessage("§cVous n'avez pas la permission.");
-                return true;
-            }
-            if (args.length < 3) {
-                sender.sendMessage("§cUsage: /money take <joueur> <montant>");
-                return true;
-            }
-            OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-            try {
-                int amount = Integer.parseInt(args[2]);
-                economyManager.removeMoney(target.getUniqueId(), amount);
-                sender.sendMessage("§aVous avez retiré §e" + amount + " coins §aà " + target.getName());
-            } catch (NumberFormatException e) {
-                sender.sendMessage("§cMontant invalide.");
-            }
-            return true;
-        }
-
-        sender.sendMessage("§cUsage: /money [give/set/take] <joueur> <montant>");
-        return true;
+        return false;
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
+    public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 1) {
             List<String> list = new ArrayList<>();
-            list.add("give");
-            list.add("take");
-            list.add("set");
+            list.add("give"); list.add("take"); list.add("set");
             return list;
         }
-        if (args.length == 2) {
-            return null; // Retourne la liste des joueurs
-        }
-        return Collections.emptyList();
+        return null;
     }
 }

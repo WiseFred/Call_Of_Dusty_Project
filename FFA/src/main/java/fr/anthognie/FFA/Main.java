@@ -41,18 +41,17 @@ public class Main extends JavaPlugin {
         this.levelManager = new LevelManager(this);
         this.ffaManager = new FFAManager(this, core.getItemConfigManager(), configManager);
         this.bountyManager = new BountyManager(this);
-
-        // CORRECTION : Constructeur à 4 arguments restauré
         this.scoreboardManager = new ScoreboardManager(this, killstreakManager, core.getEconomyManager(), ffaManager);
 
         registerCommands();
         registerListeners();
+
+        getLogger().info("FFA Plugin activé !");
     }
 
     @Override
     public void onDisable() {
         if(dataManager != null) {
-            // CORRECTION : Appel à la méthode de sauvegarde
             dataManager.saveAllData();
         }
     }
@@ -82,9 +81,10 @@ public class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new KillstreakListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerRegenListener(this), this);
         getServer().getPluginManager().registerEvents(new FFAProtectionListener(this), this);
-
-        // AJOUT : Listener pour le GUI de Stats
         getServer().getPluginManager().registerEvents(new StatsListener(this), this);
+
+        // --- C'EST LA LIGNE QUI MANQUAIT POUR LE SPAWN LOBBY ---
+        getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
     }
 
     public FFAManager getFfaManager() { return ffaManager; }

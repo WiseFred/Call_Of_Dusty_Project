@@ -14,6 +14,9 @@ import java.util.List;
 
 public class ShopGUI {
 
+    public static final String TITLE = "§6Shop FFA";
+    public static final String ADMIN_TITLE = "§cÉdition Shop FFA";
+
     private final Main plugin;
     private final ConfigManager config;
 
@@ -23,25 +26,31 @@ public class ShopGUI {
     }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 54, "§6Shop FFA");
+        open(player, false);
+    }
+
+    public void open(Player player, boolean adminMode) {
+        String title = adminMode ? ADMIN_TITLE : TITLE;
+        Inventory inv = Bukkit.createInventory(null, 54, title);
 
         if (config.getShopConfig().contains("items")) {
             for (String key : config.getShopConfig().getConfigurationSection("items").getKeys(false)) {
                 String path = "items." + key;
-                String name = config.getShopConfig().getString(path + ".name");
+                String matName = config.getShopConfig().getString(path + ".material");
                 int price = config.getShopConfig().getInt(path + ".price");
                 int slot = config.getShopConfig().getInt(path + ".slot");
-                String materialName = config.getShopConfig().getString(path + ".material");
+                String name = config.getShopConfig().getString(path + ".name");
 
-                Material material = Material.getMaterial(materialName);
-                if (material != null) {
-                    ItemStack item = new ItemStack(material);
+                Material mat = Material.getMaterial(matName);
+                if (mat != null) {
+                    ItemStack item = new ItemStack(mat);
                     ItemMeta meta = item.getItemMeta();
                     if (meta != null) {
-                        meta.setDisplayName(name != null ? name.replace("&", "§") : material.name());
+                        meta.setDisplayName(name != null ? name.replace("&", "§") : mat.name());
                         List<String> lore = new ArrayList<>();
                         lore.add("§7Prix: §6" + price + "$");
-                        lore.add("§eclic gauche pour acheter");
+                        if (adminMode) lore.add("§e[Clic G] Déplacer - [Clic D] Supprimer");
+                        else lore.add("§eClic pour acheter");
                         meta.setLore(lore);
                         item.setItemMeta(meta);
                         inv.setItem(slot, item);
@@ -50,19 +59,49 @@ public class ShopGUI {
             }
         }
 
-        // --- LINGOT D'OR (SOLDE) ---
-        double money = plugin.getEconomyManager().getMoney(player.getUniqueId());
-        ItemStack balanceItem = new ItemStack(Material.GOLD_INGOT);
-        ItemMeta meta = balanceItem.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName("§6§lVotre Solde");
-            List<String> lore = new ArrayList<>();
-            lore.add("§fMontant : §e" + (int)money + "$");
-            meta.setLore(lore);
-            balanceItem.setItemMeta(meta);
+        if (!adminMode) {
+            double money = plugin.getEconomyManager().getMoney(player.getUniqueId());
+            ItemStack gold = new ItemStack(Material.GOLD_INGOT);
+            ItemMeta meta = gold.getItemMeta();
+            meta.setDisplayName("§6Solde: §e" + (int)money + "$");
+            gold.setItemMeta(meta);
+            inv.setItem(49, gold);
         }
-        inv.setItem(49, balanceItem);
 
         player.openInventory(inv);
+    }
+
+    public void addShopItem(ItemStack item, int slot) {
+        String key = "item_" + System.currentTimeMillis();
+        String path = "items." + key;
+        config.getShopConfig().set(path + ".material", item.getType().name());
+        config.getShopConfig().set(path + ".price", 100);
+        config.getShopConfig().set(path + ".slot", slot);
+        if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            config.getShopConfig().set(path + ".name", item.getItemMeta().getDisplayName());
+        }
+        config.saveShopConfig();
+    }
+
+    public void removeShopItem(int slot) {
+        if (!config.getShopConfig().contains("items")) return;
+        for (String key : config.getShopConfig().getConfigurationSection("items").getKeys(false)) {
+            if (config.getShopConfig().getInt("items." + key + ".slot") == slot) {
+                config.getShopConfig().set("items." + key, null);
+                config.saveShopConfig();
+                break;
+            }
+        }
+    }
+
+    public void moveShopItem(int oldSlot, int newSlot) {
+        if (!config.getShopConfig().contains("items")) return;
+        for (String key : config.getShopConfig().getConfigurationSection("items").getKeys(false)) {
+            if (config.getShopConfig().getInt("items." + key + ".slot") == oldSlot) {
+                config.getShopConfig().set("items." + key + ".slot", newSlot);
+                config.saveShopConfig();
+                break;
+            }
+        }
     }
 }

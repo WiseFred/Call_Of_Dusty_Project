@@ -15,7 +15,7 @@ public class EconomyManager {
 
     private final Main plugin;
     private final File dataFolder;
-    private final Map<UUID, Integer> balances = new HashMap<>();
+    private final Map<UUID, Double> balances = new HashMap<>(); // Changed to Double for precision, usually better for money
 
     public EconomyManager(Main plugin) {
         this.plugin = plugin;
@@ -25,49 +25,62 @@ public class EconomyManager {
         }
     }
 
-    // --- ARGENT ---
+    // --- MISSING METHODS ADDED ---
 
-    public int getMoney(UUID uuid) {
+    public boolean hasAccount(UUID uuid) {
+        // Checks if player is in memory or if file exists
+        return balances.containsKey(uuid) || new File(dataFolder, uuid + ".yml").exists();
+    }
+
+    public void createAccount(UUID uuid) {
+        if (!hasAccount(uuid)) {
+            setMoney(uuid, 0); // Default starting money
+        }
+    }
+
+    // --- MONEY MANAGEMENT ---
+
+    public double getMoney(UUID uuid) {
         if (!balances.containsKey(uuid)) {
             loadPlayer(uuid);
         }
-        return balances.getOrDefault(uuid, 0);
+        return balances.getOrDefault(uuid, 0.0);
     }
 
-    public void addMoney(UUID uuid, int amount) {
+    public void addMoney(UUID uuid, double amount) {
         setMoney(uuid, getMoney(uuid) + amount);
     }
 
-    public void removeMoney(UUID uuid, int amount) {
-        int current = getMoney(uuid);
+    public void removeMoney(UUID uuid, double amount) {
+        double current = getMoney(uuid);
         setMoney(uuid, Math.max(0, current - amount));
     }
 
-    public void setMoney(UUID uuid, int amount) {
+    public void setMoney(UUID uuid, double amount) {
         balances.put(uuid, amount);
         savePlayer(uuid);
     }
 
-    public boolean hasMoney(UUID uuid, int amount) {
+    public boolean hasMoney(UUID uuid, double amount) {
         return getMoney(uuid) >= amount;
     }
 
-    // --- SAUVEGARDE & CHARGEMENT ---
+    // --- SAVE & LOAD ---
 
     public void loadPlayer(UUID uuid) {
         File file = new File(dataFolder, uuid + ".yml");
         if (file.exists()) {
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-            balances.put(uuid, config.getInt("money", 0));
+            balances.put(uuid, config.getDouble("money", 0));
         } else {
-            balances.put(uuid, 0);
+            balances.put(uuid, 0.0);
         }
     }
 
     public void savePlayer(UUID uuid) {
         File file = new File(dataFolder, uuid + ".yml");
         YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-        config.set("money", balances.getOrDefault(uuid, 0));
+        config.set("money", balances.getOrDefault(uuid, 0.0));
         try {
             config.save(file);
         } catch (IOException e) {
@@ -75,14 +88,13 @@ public class EconomyManager {
         }
     }
 
-    // Pour Main.java onDisable
     public void saveAllData() {
         for (UUID uuid : balances.keySet()) {
             savePlayer(uuid);
         }
     }
 
-    // --- INVENTAIRES ---
+    // --- INVENTORY MANAGEMENT ---
 
     public void saveInventory(UUID uuid, ItemStack[] contents) {
         File file = new File(dataFolder, uuid + ".yml");

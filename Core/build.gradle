@@ -29,8 +29,9 @@ targetCompatibility = JavaVersion.VERSION_17
 sourceCompatibility = JavaVersion.VERSION_17
 
 task copyToDevServer(type: Copy) {
-    from jar
-    into "/Users/anthony/Library/Application Support/feather/player-server/servers/b89081dd-b5dd-4d18-835c-13b3cca34af9/plugins"
+    from jar // Prend le jar généré
+    into "/Users/anthony/Library/Application Support/feather/player-server/servers/b89081dd-b5dd-4d18-835c-13b3cca34af9/plugins" // Vérifie que ce chemin est bon !
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE // <--- FORCE L'ÉCRASEMENT
+    outputs.upToDateWhen { false } // <--- FORCE L'EXÉCUTION (Empêche le "UP-TO-DATE")
 }
-
-build.dependsOn copyToDevServer
+build.finalizedBy copyToDevServer

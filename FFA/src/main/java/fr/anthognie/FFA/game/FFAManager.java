@@ -29,10 +29,9 @@ public class FFAManager {
     private final EconomyManager economyManager;
     private final Location lobbyLocation;
 
-    // --- COMBAT TAG ---
     private final Map<UUID, Long> combatTagTimer = new HashMap<>();
     private final Map<UUID, UUID> lastAttacker = new HashMap<>();
-    private final Set<UUID> pendingPenalties = new HashSet<>(); // Liste des joueurs à punir au reco
+    private final Set<UUID> pendingPenalties = new HashSet<>();
 
     private ItemStack camoHelmet, camoChestplate, camoLeggings, camoBoots;
     private final Map<UUID, BukkitTask> regenTasks = new HashMap<>();
@@ -64,13 +63,11 @@ public class FFAManager {
 
         economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
 
-        // Reset immédiat
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
         for (PotionEffect effect : player.getActivePotionEffects()) player.removePotionEffect(effect.getType());
 
-        // Téléportation immédiate
         boolean ported = teleportToRandomSpawn(player);
         if (!ported) {
             player.sendMessage("§cErreur: Aucun spawn défini ! (/addspawn)");
@@ -79,7 +76,7 @@ public class FFAManager {
         player.sendMessage("§a§lFFA §8» §7Bienvenue !");
         player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_ELYTRA, 1f, 1f);
 
-        // GIVE KIT IMMEDIAT (1 tick de sécurité seulement)
+        // CORRECTION DÉLAI : 20 ticks (1 seconde)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -87,7 +84,7 @@ public class FFAManager {
                     setupPlayerForGame(player);
                 }
             }
-        }.runTaskLater(plugin, 1L);
+        }.runTaskLater(plugin, 20L);
     }
 
     public void leaveArena(Player player) {
@@ -120,18 +117,12 @@ public class FFAManager {
         applySpawnProtection(player);
     }
 
-    // GESTION ANTI-DECO (MODIFIÉE)
     public void checkCombatLog(Player player) {
         if (!combatTagTimer.containsKey(player.getUniqueId())) return;
         long lastHit = combatTagTimer.get(player.getUniqueId());
 
-        // Si déco moins de 10s après un coup
         if (System.currentTimeMillis() - lastHit < 10000) {
-
-            // 1. Message public
             Bukkit.broadcastMessage("§c§l" + player.getName() + " §7a fui le combat ! (-5000$)");
-
-            // 2. Récompense du tueur
             Player killer = null;
             if (lastAttacker.containsKey(player.getUniqueId())) {
                 killer = Bukkit.getPlayer(lastAttacker.get(player.getUniqueId()));
@@ -142,28 +133,21 @@ public class FFAManager {
                 economyManager.addMoney(killer.getUniqueId(), 10);
                 killer.sendMessage("§aVous avez tué §e" + player.getName() + " §a(Déconnexion) !");
             }
-
-            // 3. PUNITION JOUEUR
             plugin.getKillstreakManager().handleDeath(player);
 
-            // Retrait Argent
             double currentMoney = economyManager.getMoney(player.getUniqueId());
-            economyManager.removeMoney(player.getUniqueId(), Math.min(currentMoney, 5000));
+            economyManager.removeMoney(player.getUniqueId(), 5000);
 
-            // On note qu'il doit recevoir un message au prochain join
             pendingPenalties.add(player.getUniqueId());
 
-            // On NE clear PAS l'inventaire, on le reset au kit de base (virtuellement pour la prochaine fois)
-            // Comme il quitte, le 'leaveArena' va de toute façon clear l'inventaire FFA.
-            // La punition est financière.
+            // On ne vide PAS l'inventaire, on redonne le kit pour qu'il ne soit pas nu au retour (virtuellement)
+            // Note: Comme il quitte, le LeaveArena va clean, mais le DataManager sauvera l'état.
+            // On s'assure juste ici de ne pas faire un .clear() punitif.
         }
     }
 
     public boolean hasPendingPenalty(Player p) { return pendingPenalties.contains(p.getUniqueId()); }
     public void removePendingPenalty(Player p) { pendingPenalties.remove(p.getUniqueId()); }
-
-    // --- (Le reste des méthodes Respawn, Nuke, etc. reste inchangé pour ne pas casser le fichier) ---
-    // Je remets les méthodes essentielles pour la compilation
 
     public void startRespawnSequence(Player player, Player killer) {
         plugin.getKillstreakManager().handleDeath(player);

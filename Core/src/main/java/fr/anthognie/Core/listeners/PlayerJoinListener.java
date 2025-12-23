@@ -15,7 +15,6 @@ public class PlayerJoinListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        // Crée un compte si le joueur n'en a pas
         if (!economyManager.hasAccount(event.getPlayer().getUniqueId())) {
             economyManager.createAccount(event.getPlayer().getUniqueId());
         }
