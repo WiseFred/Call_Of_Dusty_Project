@@ -49,8 +49,12 @@ public class ShopGUI {
                         meta.setDisplayName(name != null ? name.replace("&", "§") : mat.name());
                         List<String> lore = new ArrayList<>();
                         lore.add("§7Prix: §6" + price + "$");
-                        if (adminMode) lore.add("§e[Clic G] Déplacer - [Clic D] Supprimer");
-                        else lore.add("§eClic pour acheter");
+                        if (adminMode) {
+                            lore.add("§e[Clic G] Déplacer");
+                            lore.add("§c[Clic D] Supprimer");
+                        } else {
+                            lore.add("§eClic pour acheter");
+                        }
                         meta.setLore(lore);
                         item.setItemMeta(meta);
                         inv.setItem(slot, item);
@@ -63,8 +67,13 @@ public class ShopGUI {
             double money = plugin.getEconomyManager().getMoney(player.getUniqueId());
             ItemStack gold = new ItemStack(Material.GOLD_INGOT);
             ItemMeta meta = gold.getItemMeta();
-            meta.setDisplayName("§6Solde: §e" + (int)money + "$");
-            gold.setItemMeta(meta);
+            if (meta != null) {
+                meta.setDisplayName("§6§lVotre Solde");
+                List<String> lore = new ArrayList<>();
+                lore.add("§fMontant : §e" + (int)money + "$");
+                meta.setLore(lore);
+                gold.setItemMeta(meta);
+            }
             inv.setItem(49, gold);
         }
 

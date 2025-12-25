@@ -1,66 +1,57 @@
 package fr.anthognie.spawn.gui;
 
-import fr.anthognie.Core.managers.ItemConfigManager;
 import fr.anthognie.spawn.Main;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class GameSelectorGUI {
 
-    private final Main plugin;
-    private final ItemConfigManager itemConfigManager;
-    private final FileConfiguration config;
+    public static final String GUI_TITLE = "§8Sélecteur de Jeux";
+    public static final int FFA_SLOT = 13;
 
-    private final String title;
-    private final int size;
+    private final Main plugin;
 
     public GameSelectorGUI(Main plugin) {
         this.plugin = plugin;
-        this.itemConfigManager = plugin.getCore().getItemConfigManager();
-        this.config = plugin.getConfig();
-
-        this.title = config.getString("compass-selector.gui.title", "§8Sélecteur de Jeux");
-        this.size = config.getInt("compass-selector.gui.size", 27);
     }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, this.size, this.title);
+        Inventory inv = Bukkit.createInventory(null, 27, GUI_TITLE);
 
-        // --- Placer l'item FFA ---
-        String itemPath = config.getString("compass-selector.gui.ffa-item.item-path");
-        int slot = config.getInt("compass-selector.gui.ffa-item.slot");
-
-        ItemStack ffaItem = itemConfigManager.getItemStack(itemPath);
-        if (ffaItem == null) {
-            // Item par défaut si la grenade n'est pas enregistrée
-            ffaItem = new ItemStack(Material.TNT);
+        // Récupération du nombre de joueurs en FFA
+        int ffaPlayers = 0;
+        World ffaWorld = Bukkit.getWorld("ffa"); // Assure-toi que ton monde s'appelle "ffa"
+        if (ffaWorld != null) {
+            ffaPlayers = ffaWorld.getPlayers().size();
         }
 
-        ItemMeta meta = ffaItem.getItemMeta();
-        meta.setDisplayName(config.getString("compass-selector.gui.ffa-item.name"));
-        meta.setLore(config.getStringList("compass-selector.gui.ffa-item.lore"));
-        ffaItem.setItemMeta(meta);
-
-        inv.setItem(slot, ffaItem);
-
-        // TODO: Ajouter d'autres items (1v1, Team Deathmatch...)
+        // ITEM TNT pour le FFA
+        ItemStack ffaItem = new ItemStack(Material.TNT);
+        ItemMeta ffaMeta = ffaItem.getItemMeta();
+        if (ffaMeta != null) {
+            ffaMeta.setDisplayName("§c§lFFA (Call of Dusty)");
+            List<String> lore = new ArrayList<>();
+            lore.add("§7Cliquez pour rejoindre l'arène.");
+            lore.add("");
+            lore.add("§7Joueurs : §b" + ffaPlayers + " en jeu"); // Ajout du compteur
+            lore.add("");
+            lore.add("§e>> Jouer !");
+            ffaMeta.setLore(lore);
+            ffaItem.setItemMeta(ffaMeta);
+        }
+        inv.setItem(FFA_SLOT, ffaItem);
 
         player.openInventory(inv);
     }
 
-    // Getters pour les Listeners
-    public String getTitle() {
-        return title;
-    }
-
-    public int getFfaSlot() {
-        return config.getInt("compass-selector.gui.ffa-item.slot");
-    }
+    public String getTitle() { return GUI_TITLE; }
+    public int getFfaSlot() { return FFA_SLOT; }
 }

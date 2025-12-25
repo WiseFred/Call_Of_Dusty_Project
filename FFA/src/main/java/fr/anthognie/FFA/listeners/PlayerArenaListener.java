@@ -1,12 +1,11 @@
 package fr.anthognie.FFA.listeners;
 
 import fr.anthognie.FFA.Main;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.entity.Player;
 
 public class PlayerArenaListener implements Listener {
 
@@ -17,37 +16,33 @@ public class PlayerArenaListener implements Listener {
     }
 
     @EventHandler
-    public void onJoin(PlayerJoinEvent event) {
-        event.setJoinMessage(null);
-        Player player = event.getPlayer();
-
-        player.setLevel(0);
-        player.setExp(0);
-
-        plugin.getScoreboardManager().setScoreboard(player);
-    }
-
-    @EventHandler
     public void onWorldChange(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
-        String toWorld = player.getWorld().getName();
-        String ffaWorld = plugin.getFfaManager().getFFAWorldName();
+        String ffaWorldName = plugin.getFfaManager().getFFAWorldName();
 
-        plugin.getScoreboardManager().setScoreboard(player);
+        // Si le joueur entre dans le monde FFA
+        if (player.getWorld().getName().equals(ffaWorldName)) {
+            // Active le Scoreboard FFA
+            plugin.getScoreboardManager().setScoreboard(player);
 
-        if (toWorld.equals(ffaWorld)) {
+            // Met à jour la barre d'XP
             plugin.getLevelManager().updateXpBar(player);
-        } else {
+        }
+        // Si le joueur quitte le monde FFA
+        else if (event.getFrom().getName().equals(ffaWorldName)) {
+            // Retire le Scoreboard FFA
+            plugin.getScoreboardManager().removePlayerScoreboard(player);
+            // Reset XP visuelle
             plugin.getLevelManager().resetXpBar(player);
         }
     }
 
     @EventHandler
-    public void onChat(AsyncPlayerChatEvent event) {
+    public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) {
-            String prefix = plugin.getLevelManager().getChatPrefix(player);
-            event.setFormat(prefix + event.getFormat());
+            plugin.getScoreboardManager().setScoreboard(player);
+            plugin.getLevelManager().updateXpBar(player);
         }
     }
 }

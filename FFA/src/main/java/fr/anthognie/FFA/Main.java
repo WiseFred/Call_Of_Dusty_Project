@@ -5,6 +5,7 @@ import fr.anthognie.Core.managers.ItemConfigManager;
 import fr.anthognie.FFA.commands.*;
 import fr.anthognie.FFA.game.FFAManager;
 import fr.anthognie.FFA.gui.FFAConfigGUI;
+import fr.anthognie.FFA.gui.PlayerStatsGUI;
 import fr.anthognie.FFA.gui.ShopGUI;
 import fr.anthognie.FFA.listeners.*;
 import fr.anthognie.FFA.managers.*;
@@ -20,23 +21,30 @@ public class Main extends JavaPlugin {
     private ScoreboardManager scoreboardManager;
     private DataManager dataManager;
     private BountyManager bountyManager;
+
+    // GUI
     private ShopGUI shopGUI;
     private FFAConfigGUI ffaConfigGUI;
+    private PlayerStatsGUI playerStatsGUI; // Ajouté
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         this.core = (fr.anthognie.Core.Main) getServer().getPluginManager().getPlugin("Core");
         if (this.core == null) {
-            getLogger().severe("ERREUR: Le plugin Core n'est pas installé ou chargé !");
+            getLogger().severe("ERREUR: Core non trouvé !");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
 
         this.configManager = new ConfigManager(this);
         this.dataManager = new DataManager(this);
+
+        // Initialisation des GUI
         this.shopGUI = new ShopGUI(this);
         this.ffaConfigGUI = new FFAConfigGUI(this);
+        this.playerStatsGUI = new PlayerStatsGUI(this); // Ajouté
+
         this.killstreakManager = new KillstreakManager(this);
         this.levelManager = new LevelManager(this);
         this.ffaManager = new FFAManager(this, core.getItemConfigManager(), configManager);
@@ -51,9 +59,7 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if(dataManager != null) {
-            dataManager.saveAllData();
-        }
+        if(dataManager != null) dataManager.saveAllData();
     }
 
     private void registerCommands() {
@@ -82,8 +88,6 @@ public class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerRegenListener(this), this);
         getServer().getPluginManager().registerEvents(new FFAProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new StatsListener(this), this);
-
-        // --- C'EST LA LIGNE QUI MANQUAIT POUR LE SPAWN LOBBY ---
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
     }
 
@@ -91,6 +95,7 @@ public class Main extends JavaPlugin {
     public ConfigManager getFfaConfigManager() { return configManager; }
     public ShopGUI getShopGUI() { return shopGUI; }
     public FFAConfigGUI getFfaConfigGUI() { return ffaConfigGUI; }
+    public PlayerStatsGUI getPlayerStatsGUI() { return playerStatsGUI; } // Getter ajouté
     public KillstreakManager getKillstreakManager() { return killstreakManager; }
     public LevelManager getLevelManager() { return levelManager; }
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }

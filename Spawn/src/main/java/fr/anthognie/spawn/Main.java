@@ -4,11 +4,8 @@ import fr.anthognie.spawn.commands.AdminCommand;
 import fr.anthognie.spawn.gui.AdminDashboardGUI;
 import fr.anthognie.spawn.gui.GameSelectorGUI;
 import fr.anthognie.spawn.gui.SpawnConfigGUI;
-import fr.anthognie.spawn.listeners.AdminDashboardListener;
-import fr.anthognie.spawn.listeners.CompassListener;
-import fr.anthognie.spawn.listeners.GameSelectorListener;
-import fr.anthognie.spawn.listeners.SpawnConfigListener;
-import fr.anthognie.spawn.listeners.SpawnListener;
+import fr.anthognie.spawn.listeners.*;
+import fr.anthognie.spawn.managers.ScoreboardManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class Main extends JavaPlugin {
@@ -17,6 +14,7 @@ public class Main extends JavaPlugin {
     private GameSelectorGUI gameSelectorGUI;
     private AdminDashboardGUI adminDashboardGUI;
     private SpawnConfigGUI spawnConfigGUI;
+    private ScoreboardManager scoreboardManager; // Ajouté
 
     @Override
     public void onEnable() {
@@ -33,14 +31,14 @@ public class Main extends JavaPlugin {
         registerListeners();
         registerCommands();
 
-        getLogger().info("Module Spawn activé et connecté au Core !");
+        getLogger().info("Module Spawn activé !");
     }
 
     private void initializeManagers() {
         this.gameSelectorGUI = new GameSelectorGUI(this);
-        // CORRECTION ICI : On passe 'this' au constructeur
         this.adminDashboardGUI = new AdminDashboardGUI(this);
         this.spawnConfigGUI = new SpawnConfigGUI(this);
+        this.scoreboardManager = new ScoreboardManager(this); // Init Scoreboard
     }
 
     private void registerCommands() {
@@ -60,19 +58,9 @@ public class Main extends JavaPlugin {
         getLogger().info("Module Spawn désactivé.");
     }
 
-    public fr.anthognie.Core.Main getCore() {
-        return core;
-    }
-
-    public GameSelectorGUI getGameSelectorGUI() {
-        return gameSelectorGUI;
-    }
-
-    public AdminDashboardGUI getAdminDashboardGUI() {
-        return adminDashboardGUI;
-    }
-
-    public SpawnConfigGUI getSpawnConfigGUI() {
-        return spawnConfigGUI;
-    }
+    public fr.anthognie.Core.Main getCore() { return core; }
+    public GameSelectorGUI getGameSelectorGUI() { return gameSelectorGUI; }
+    public AdminDashboardGUI getAdminDashboardGUI() { return adminDashboardGUI; }
+    public SpawnConfigGUI getSpawnConfigGUI() { return spawnConfigGUI; }
+    public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
 }

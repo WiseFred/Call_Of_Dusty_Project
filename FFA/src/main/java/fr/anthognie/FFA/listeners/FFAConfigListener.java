@@ -2,7 +2,6 @@ package fr.anthognie.FFA.listeners;
 
 import fr.anthognie.FFA.Main;
 import fr.anthognie.FFA.gui.FFAConfigGUI;
-import fr.anthognie.FFA.managers.ConfigManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,15 +11,14 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 public class FFAConfigListener implements Listener {
 
     private final Main plugin;
-    private final ConfigManager configManager;
 
     public FFAConfigListener(Main plugin) {
         this.plugin = plugin;
-        this.configManager = plugin.getFfaConfigManager();
     }
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
+        // Vérifie le bon titre
         if (!event.getView().getTitle().equals(FFAConfigGUI.GUI_TITLE)) return;
 
         event.setCancelled(true);
@@ -30,29 +28,26 @@ public class FFAConfigListener implements Listener {
         int slot = event.getSlot();
 
         switch (slot) {
-            case 11: // Toggle Spawn Protection
-                boolean prot = !configManager.getConfig().getBoolean("spawn-protection.enabled");
-                configManager.getConfig().set("spawn-protection.enabled", prot);
-                configManager.saveConfig();
-                plugin.getFfaConfigGUI().open(player); // Refresh
+            case 11: // Émeraude -> Éditer le Shop
+                player.closeInventory();
+                // Lance la commande /editshop en tant que joueur (permission déjà vérifiée par le menu admin)
+                player.performCommand("editshop");
                 break;
 
-            case 13: // Toggle Build Mode
-                boolean build = !configManager.getConfig().getBoolean("build-mode.enabled");
-                configManager.getConfig().set("build-mode.enabled", build);
-                configManager.saveConfig();
-                plugin.getFfaConfigGUI().open(player);
+            case 13: // Tête -> Gérer les Joueurs
+                // Ouvre le GUI de sélection des joueurs (pour reset stats, etc.)
+                plugin.getPlayerStatsGUI().open(player);
                 break;
 
-            case 15: // Toggle Scoreboard
-                boolean board = !configManager.getConfig().getBoolean("scoreboard.enabled");
-                configManager.getConfig().set("scoreboard.enabled", board);
-                configManager.saveConfig();
-                plugin.getFfaConfigGUI().open(player);
-                break;
-
-            case 40: // Retour
-                player.performCommand("codadmin");
+            case 15: // Boussole -> Spawns
+                player.closeInventory();
+                player.sendMessage("§8§m--------------------------------");
+                player.sendMessage("§6§lCONFIGURATION SPAWNS");
+                player.sendMessage("§7Pour ajouter un point de spawn :");
+                player.sendMessage("§e1. §7Allez à l'endroit désiré.");
+                player.sendMessage("§e2. §7Regardez dans la bonne direction.");
+                player.sendMessage("§e3. §7Tapez §6/addspawn");
+                player.sendMessage("§8§m--------------------------------");
                 break;
         }
     }

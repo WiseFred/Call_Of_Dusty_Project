@@ -15,7 +15,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Vector;
+import org.bukkit.metadata.FixedMetadataValue; // Import pour les métadonnées
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -51,50 +51,52 @@ public class FFAManager {
         String worldName = ffaConfigManager.getConfig().getString("ffa-world", "ffa");
         this.ffaWorld = Bukkit.getWorld(worldName);
 
+        if (this.ffaWorld == null) {
+            plugin.getLogger().severe("ERREUR CRITIQUE: Le monde FFA '" + worldName + "' n'est pas chargé !");
+        }
+
         createCamoArmor();
         startFoodTask();
     }
 
     public void joinArena(Player player) {
         if (ffaWorld == null) {
-            player.sendMessage("§cMonde FFA introuvable.");
+            player.sendMessage("§cErreur: Monde FFA introuvable.");
             return;
         }
 
+        // 1. Sauvegarde l'inventaire actuel (du lobby)
         economyManager.saveInventory(player.getUniqueId(), player.getInventory().getContents());
 
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
+        player.getInventory().clear();
         for (PotionEffect effect : player.getActivePotionEffects()) player.removePotionEffect(effect.getType());
 
         boolean ported = teleportToRandomSpawn(player);
         if (!ported) {
-            player.sendMessage("§cErreur: Aucun spawn défini ! (/addspawn)");
+            player.teleport(ffaWorld.getSpawnLocation());
+            player.sendMessage("§c§lATTENTION: §7Aucun spawn configuré !");
         }
 
-        player.sendMessage("§a§lFFA §8» §7Bienvenue !");
         player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_ELYTRA, 1f, 1f);
-
-        // CORRECTION DÉLAI : 20 ticks (1 seconde)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (player.isOnline()) {
-                    setupPlayerForGame(player);
-                }
-            }
-        }.runTaskLater(plugin, 20L);
+        setupPlayerForGame(player);
     }
 
     public void leaveArena(Player player) {
+        // 1. Vider le stuff FFA
         player.getInventory().clear();
         player.getInventory().setArmorContents(null);
 
+        // 2. Restaurer l'inventaire sauvegardé
         ItemStack[] saved = economyManager.loadInventory(player.getUniqueId());
-        if (saved != null) {
+        if (saved != null && saved.length > 0) {
             player.getInventory().setContents(saved);
-            economyManager.clearInventory(player.getUniqueId());
+            economyManager.clearInventory(player.getUniqueId()); // Supprime la sauvegarde après restauration
+        } else {
+            // Si rien de sauvegardé, on clear juste par sécurité
+            player.getInventory().clear();
         }
 
         player.setGameMode(GameMode.ADVENTURE);
@@ -102,7 +104,20 @@ public class FFAManager {
         player.setFoodLevel(20);
         player.removePotionEffect(PotionEffectType.BLINDNESS);
 
+        // 3. Marquer le joueur "Je viens de quitter le FFA" pour que le SpawnListener ne vide pas son inventaire
+        player.setMetadata("JustLeftFFA", new FixedMetadataValue(plugin, true));
+
         if (lobbyLocation != null) player.teleport(lobbyLocation);
+
+        // Nettoyage après 2 secondes (supprime le tag)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (player.isOnline()) {
+                    player.removeMetadata("JustLeftFFA", plugin);
+                }
+            }
+        }.runTaskLater(plugin, 40L);
 
         clearRegenTask(player);
         clearInvincibility(player);
@@ -110,6 +125,7 @@ public class FFAManager {
         lastAttacker.remove(player.getUniqueId());
     }
 
+    // ... (Le reste des méthodes reste inchangé : setupPlayerForGame, checkCombatLog, etc.) ...
     public void setupPlayerForGame(Player player) {
         player.getInventory().clear();
         player.getInventory().setArmorContents(null);
@@ -117,10 +133,19 @@ public class FFAManager {
         applySpawnProtection(player);
     }
 
+    private boolean teleportToRandomSpawn(Player player) {
+        List<Location> spawns = ffaConfigManager.getSpawnLocations();
+        if (spawns != null && !spawns.isEmpty()) {
+            Location loc = spawns.get(ThreadLocalRandom.current().nextInt(spawns.size()));
+            player.teleport(loc);
+            return true;
+        }
+        return false;
+    }
+
     public void checkCombatLog(Player player) {
         if (!combatTagTimer.containsKey(player.getUniqueId())) return;
         long lastHit = combatTagTimer.get(player.getUniqueId());
-
         if (System.currentTimeMillis() - lastHit < 10000) {
             Bukkit.broadcastMessage("§c§l" + player.getName() + " §7a fui le combat ! (-5000$)");
             Player killer = null;
@@ -131,18 +156,12 @@ public class FFAManager {
                 plugin.getKillstreakManager().handleKill(killer);
                 plugin.getScoreboardManager().recordKill(killer, player);
                 economyManager.addMoney(killer.getUniqueId(), 10);
-                killer.sendMessage("§aVous avez tué §e" + player.getName() + " §a(Déconnexion) !");
+                killer.sendMessage("§aKill validé (Déconnexion).");
             }
             plugin.getKillstreakManager().handleDeath(player);
-
-            double currentMoney = economyManager.getMoney(player.getUniqueId());
             economyManager.removeMoney(player.getUniqueId(), 5000);
-
             pendingPenalties.add(player.getUniqueId());
-
-            // On ne vide PAS l'inventaire, on redonne le kit pour qu'il ne soit pas nu au retour (virtuellement)
-            // Note: Comme il quitte, le LeaveArena va clean, mais le DataManager sauvera l'état.
-            // On s'assure juste ici de ne pas faire un .clear() punitif.
+            giveStarterKit(player);
         }
     }
 
@@ -187,7 +206,8 @@ public class FFAManager {
     }
 
     public void respawnPlayer(Player player) {
-        teleportToRandomSpawn(player);
+        boolean teleported = teleportToRandomSpawn(player);
+        if(!teleported && ffaWorld != null) player.teleport(ffaWorld.getSpawnLocation());
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -195,18 +215,6 @@ public class FFAManager {
                 player.setGameMode(GameMode.ADVENTURE);
             }
         }.runTaskLater(plugin, 2L);
-    }
-
-    private boolean teleportToRandomSpawn(Player player) {
-        List<Location> spawns = ffaConfigManager.getSpawnLocations();
-        if (spawns != null && !spawns.isEmpty()) {
-            Location loc = spawns.get(ThreadLocalRandom.current().nextInt(spawns.size()));
-            player.teleport(loc);
-            return true;
-        } else {
-            if (ffaWorld != null) player.teleport(ffaWorld.getSpawnLocation());
-            return false;
-        }
     }
 
     public void tagPlayer(Player victim, Player attacker) {

@@ -10,7 +10,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.*;
 
-import java.text.DecimalFormat;
 import java.util.*;
 
 public class ScoreboardManager {
@@ -20,7 +19,6 @@ public class ScoreboardManager {
     private final EconomyManager economyManager;
     private final FFAManager ffaManager;
     private final Map<UUID, Scoreboard> boards = new HashMap<>();
-    private final DecimalFormat ratioFormat = new DecimalFormat("#.##");
 
     public ScoreboardManager(Main plugin, KillstreakManager ks, EconomyManager eco, FFAManager ffa) {
         this.plugin = plugin;
@@ -91,19 +89,26 @@ public class ScoreboardManager {
         int deaths = player.getStatistic(Statistic.DEATHS);
         int streak = killstreakManager.getKillstreak(player);
         double money = economyManager.getMoney(player.getUniqueId());
-        double ratio = (deaths == 0) ? kills : (double) kills / deaths;
+
+        LevelManager lvlManager = plugin.getLevelManager();
+        int level = lvlManager.getLevel(player);
+        String progressBar = lvlManager.getProgressBar(player);
+        String xpText = lvlManager.getXpText(player);
 
         List<String> lines = new ArrayList<>();
         lines.add("§8§m--------------------");
         lines.add("§fJoueur : §7" + player.getName());
         lines.add("§1");
+        lines.add("§fNiveau : §b" + level);
+        lines.add(progressBar);
+        lines.add("  " + xpText);
+        lines.add("§2");
         lines.add("§fKills : §a" + kills);
         lines.add("§fMorts : §c" + deaths);
-        lines.add("§fRatio : §e" + ratioFormat.format(ratio));
-        lines.add("§2");
-        lines.add("§fArgent : §6" + (int)money + "$");
-        lines.add("§fSérie : §b" + streak);
         lines.add("§3");
+        lines.add("§fArgent : §6" + (int)money + "$");
+        lines.add("§fSérie : §e" + streak);
+        lines.add("§4");
 
         lines.add("§6§lTOP SÉRIES:");
         if (topKillstreaks.isEmpty()) {
@@ -116,8 +121,7 @@ public class ScoreboardManager {
             }
         }
 
-        lines.add("§4");
-        lines.add("§ewww.callofdusty.fr");
+        // IP SUPPRIMÉE ICI
         lines.add("§8§m-------------------- ");
 
         for (String entry : board.getEntries()) board.resetScores(entry);
@@ -141,6 +145,6 @@ public class ScoreboardManager {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 40L);
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 }

@@ -12,6 +12,7 @@ import java.util.Arrays;
 
 public class AirdropConfigGUI {
 
+    public static final String GUI_TITLE = "§8Configuration Airdrops";
     private final Main plugin;
 
     public AirdropConfigGUI(Main plugin) {
@@ -19,16 +20,26 @@ public class AirdropConfigGUI {
     }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, "§8Config Airdrops");
+        Inventory inv = Bukkit.createInventory(null, 27, GUI_TITLE);
 
-        // Bouton Loots Normaux
-        inv.setItem(10, createItem(Material.CHEST, "§eLoots Normaux", "§7Modifier les items des", "§7airdrops classiques (10min)"));
+        inv.setItem(11, createItem(Material.CHEST, "§eÉditer Loot Normal", "§7Modifier le contenu des coffres normaux"));
+        inv.setItem(15, createItem(Material.ENDER_CHEST, "§6Éditer Loot Ultime", "§7Modifier le contenu des coffres ultimes"));
 
-        // Bouton Loots Ultimes
-        inv.setItem(12, createItem(Material.ENDER_CHEST, "§6Loots Ultimes", "§7Modifier les items des", "§7airdrops ultimes (15min)"));
+        // Boutons Force Spawn
+        inv.setItem(12, createItem(Material.BEACON, "§bForce Spawn Normal", "§7Faire apparaître un drop maintenant"));
+        inv.setItem(14, createItem(Material.NETHER_STAR, "§cForce Spawn Ultime", "§7Faire apparaître un drop ultime"));
 
-        inv.setItem(14, createItem(Material.BEACON, "§bForce Spawn", "§7Faire apparaître un airdrop maintenant"));
-        inv.setItem(16, createItem(Material.TNT, "§c§lSupprimer Tout", "§7Retire tous les airdrops actifs"));
+        // Boutons ON/OFF
+        boolean normalOn = plugin.getAirdropManager().areDropsEnabled(false);
+        boolean ultiOn = plugin.getAirdropManager().areDropsEnabled(true);
+
+        inv.setItem(20, createItem(normalOn ? Material.LIME_DYE : Material.GRAY_DYE,
+                "§eDrops Normaux: " + (normalOn ? "§aON" : "§cOFF"), "§7Clic pour changer"));
+
+        inv.setItem(24, createItem(ultiOn ? Material.LIME_DYE : Material.GRAY_DYE,
+                "§6Drops Ultimes: " + (ultiOn ? "§aON" : "§cOFF"), "§7Clic pour changer"));
+
+        inv.setItem(22, createItem(Material.TNT, "§cSupprimer Tout", "§7Retire tous les airdrops actifs"));
 
         player.openInventory(inv);
     }
@@ -36,11 +47,9 @@ public class AirdropConfigGUI {
     private ItemStack createItem(Material mat, String name, String... lore) {
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            meta.setLore(Arrays.asList(lore));
-            item.setItemMeta(meta);
-        }
+        meta.setDisplayName(name);
+        meta.setLore(Arrays.asList(lore));
+        item.setItemMeta(meta);
         return item;
     }
 }

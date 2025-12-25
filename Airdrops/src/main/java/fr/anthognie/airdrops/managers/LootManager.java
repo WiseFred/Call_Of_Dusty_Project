@@ -1,125 +1,120 @@
 package fr.anthognie.airdrops.managers;
 
-import fr.anthognie.Core.managers.ItemConfigManager;
 import fr.anthognie.airdrops.Main;
-import fr.anthognie.Core.utils.InventorySerializer;
-import org.bukkit.Material;
-import org.bukkit.block.Chest;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.block.Chest;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class LootManager {
 
     private final Main plugin;
-    private final ItemConfigManager itemConfigManager;
-    private final Random random = new Random();
+    private File lootFile;
     private FileConfiguration lootConfig;
-    private File configFile;
+    private final Random random = new Random();
 
     public LootManager(Main plugin) {
         this.plugin = plugin;
-        this.itemConfigManager = plugin.getItemConfigManager();
-        loadLootConfig();
+        createLootConfig();
     }
 
-    public void loadLootConfig() {
-        this.configFile = new File(plugin.getDataFolder(), "loot.yml");
-        if (!configFile.exists()) {
+    private void createLootConfig() {
+        lootFile = new File(plugin.getDataFolder(), "loot.yml");
+        if (!lootFile.exists()) {
+            lootFile.getParentFile().mkdirs();
             plugin.saveResource("loot.yml", false);
         }
-        this.lootConfig = YamlConfiguration.loadConfiguration(configFile);
+        lootConfig = YamlConfiguration.loadConfiguration(lootFile);
     }
 
-    public FileConfiguration getConfig() {
+    public FileConfiguration getLootConfig() {
+        if (lootConfig == null) {
+            createLootConfig();
+        }
         return lootConfig;
     }
 
-    public void saveConfig() {
+    public void saveLootConfig() {
         try {
-            lootConfig.save(configFile);
-        } catch (Exception e) {
-            plugin.getLogger().severe("Impossible de sauver loot.yml!");
+            getLootConfig().save(lootFile);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
+
+    // --- ALIASES FOR COMPATIBILITY ---
+    public FileConfiguration getConfig() {
+        return getLootConfig();
+    }
+
+    public void saveConfig() {
+        saveLootConfig();
+    }
+    // ---------------------------------
 
     public void fillChest(Chest chest, boolean isUltimate) {
-        Inventory inv = chest.getInventory();
-        inv.clear();
+        chest.getInventory().clear();
+        String typePath = isUltimate ? "ultimate" : "normal";
+        ConfigurationSection section = getLootConfig().getConfigurationSection("loots." + typePath);
 
-        String type = isUltimate ? "ultimate" : "normal";
-        ConfigurationSection kitsSection = lootConfig.getConfigurationSection(type + ".kits");
-        if (kitsSection == null) return;
+        if (section == null) return;
 
-        if (isUltimate) {
-            // --- LOGIQUE ULTIME : On teste la chance pour CHAQUE kit ---
-            for (String key : kitsSection.getKeys(false)) {
-                int kitChance = kitsSection.getInt(key + ".chance", 100);
-                if (random.nextInt(100) < kitChance) {
-                    addKitToInventory(inv, type, key);
+        List<String> keys = new ArrayList<>(section.getKeys(false));
+        if (keys.isEmpty()) return;
+
+        // Random fill
+        int itemsToAdd = random.nextInt(3) + 3; // 3 to 5 items
+        for (int i = 0; i < itemsToAdd; i++) {
+            String randomKey = keys.get(random.nextInt(keys.size()));
+            String path = "loots." + typePath + "." + randomKey;
+
+            int chance = getLootConfig().getInt(path + ".chance");
+            if (random.nextInt(100) < chance) {
+                ItemStack item = getLootConfig().getItemStack(path + ".item");
+                if (item != null) {
+                    int min = getLootConfig().getInt(path + ".min");
+                    int max = getLootConfig().getInt(path + ".max");
+                    int amount = random.nextInt(max - min + 1) + min;
+                    item.setAmount(amount);
+
+                    int slot = random.nextInt(chest.getInventory().getSize());
+                    chest.getInventory().setItem(slot, item);
                 }
-            }
-        } else {
-            // --- LOGIQUE NORMALE : On choisit UN SEUL kit ---
-            int totalWeight = 0;
-            Map<String, Integer> kitWeights = new HashMap<>();
-            for (String key : kitsSection.getKeys(false)) {
-                int weight = kitsSection.getInt(key + ".chance", 0);
-                totalWeight += weight;
-                kitWeights.put(key, weight);
-            }
-            if (totalWeight == 0) return;
-
-            int roll = random.nextInt(totalWeight);
-            int cumulative = 0;
-            String chosenKitKey = null;
-
-            for (Map.Entry<String, Integer> entry : kitWeights.entrySet()) {
-                cumulative += entry.getValue();
-                if (roll < cumulative) {
-                    chosenKitKey = entry.getKey();
-                    break;
-                }
-            }
-
-            if (chosenKitKey != null) {
-                addKitToInventory(inv, type, chosenKitKey);
             }
         }
     }
 
-    /**
-     * Récupère un kit depuis le items.yml (du Core) et l'ajoute au coffre.
-     */
-    private void addKitToInventory(Inventory inv, String type, String kitName) {
-        String itemPath = "airdrops.loot." + type + "." + kitName;
+    public void addLootItem(ItemStack item, int chance, int min, int max, boolean isUltimate) {
+        String typePath = isUltimate ? "ultimate" : "normal";
+        String key = "item_" + System.currentTimeMillis();
+        String path = "loots." + typePath + "." + key;
 
-        String base64data = itemConfigManager.getConfig().getString(itemPath);
-        if (base64data == null || base64data.isEmpty()) {
-            plugin.getLogger().warning("Contenu du kit '" + kitName + "' introuvable ! (Path: " + itemPath + ")");
-            return;
-        }
+        getLootConfig().set(path + ".item", item);
+        getLootConfig().set(path + ".chance", chance);
+        getLootConfig().set(path + ".min", min);
+        getLootConfig().set(path + ".max", max);
+        saveLootConfig();
+    }
 
-        try {
-            ItemStack[] items = InventorySerializer.itemStackArrayFromBase64(base64data);
+    public void removeLootItem(ItemStack displayItem, boolean isUltimate) {
+        String typePath = isUltimate ? "ultimate" : "normal";
+        ConfigurationSection section = getLootConfig().getConfigurationSection("loots." + typePath);
+        if (section == null) return;
 
-            for (ItemStack item : items) {
-                if (item != null && item.getType() != Material.AIR) {
-                    if (inv.firstEmpty() != -1) {
-                        inv.setItem(random.nextInt(inv.getSize()), item);
-                    }
-                }
+        for (String key : section.getKeys(false)) {
+            ItemStack item = getLootConfig().getItemStack("loots." + typePath + "." + key + ".item");
+            if (item != null && item.isSimilar(displayItem)) {
+                getLootConfig().set("loots." + typePath + "." + key, null);
+                saveLootConfig();
+                return;
             }
-        } catch (Exception e) {
-            plugin.getLogger().severe("Erreur lors du décodage du kit: " + kitName);
-            e.printStackTrace();
         }
     }
 }

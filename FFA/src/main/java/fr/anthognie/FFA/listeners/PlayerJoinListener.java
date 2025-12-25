@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.ItemStack;
 
 public class PlayerJoinListener implements Listener {
 
@@ -21,26 +22,31 @@ public class PlayerJoinListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        // 1. GESTION PUNITION ANTI-DÉCO
+        // 1. Punition
         if (plugin.getFfaManager().hasPendingPenalty(player)) {
             player.sendMessage("§c§lPUNITION ! §7Déconnexion en combat détectée.");
             player.sendMessage("§c-5000$ ont été retirés de votre compte.");
             plugin.getFfaManager().removePendingPenalty(player);
         }
 
-        // 2. ANTI-SPAWN EN FFA (Force le retour au Lobby)
-        // Si le joueur se connecte alors qu'il est dans le monde FFA, on le renvoie au spawn global
+        // 2. Anti-Spawn FFA
         if (player.getWorld().getName().equals(plugin.getFfaManager().getFFAWorldName())) {
-            World lobby = Bukkit.getWorld("world"); // Assure-toi que "world" est bien le nom de ton monde lobby
-            if (lobby != null) {
-                player.teleport(lobby.getSpawnLocation());
-            }
+            World lobby = Bukkit.getWorld("world");
+            if (lobby != null) player.teleport(lobby.getSpawnLocation());
+
             player.setGameMode(GameMode.ADVENTURE);
-            player.getInventory().clear();
-            player.sendMessage("§eVous avez été renvoyé au Lobby.");
+
+            ItemStack[] savedInv = plugin.getEconomyManager().loadInventory(player.getUniqueId());
+            if (savedInv != null) {
+                player.getInventory().setContents(savedInv);
+                plugin.getEconomyManager().clearInventory(player.getUniqueId());
+            } else {
+                player.getInventory().clear();
+            }
+
+            // AUCUN MESSAGE DE CONFIRMATION ICI
         }
 
-        // Chargement des données FFA
         plugin.getDataManager().loadPlayer(player);
     }
 }
