@@ -30,7 +30,7 @@ sourceCompatibility = JavaVersion.VERSION_17
 
 task copyToDevServer(type: Copy) {
     from jar // Prend le jar généré
-    into "/Users/anthony/Library/Application Support/feather/player-server/servers/b89081dd-b5dd-4d18-835c-13b3cca34af9/plugins" // Vérifie que ce chemin est bon !
+    into "C:\\Users\\antho\\AppData\\Roaming\\.feather\\player-server\\servers\\68578da0-739a-490f-a683-a3f90ce22687\\plugins" // Vérifie que ce chemin est bon !
     duplicatesStrategy = DuplicatesStrategy.INCLUDE // <--- FORCE L'ÉCRASEMENT
     outputs.upToDateWhen { false } // <--- FORCE L'EXÉCUTION (Empêche le "UP-TO-DATE")
 }

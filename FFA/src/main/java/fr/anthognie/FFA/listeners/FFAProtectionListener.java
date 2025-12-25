@@ -7,10 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockExplodeEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.*;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
@@ -34,51 +31,74 @@ public class FFAProtectionListener implements Listener {
         return plugin.getCore().getBuildModeManager().isInBuildMode(player);
     }
 
-    // --- 1. PROTECTION NOURRITURE (Totale) ---
+    // 1. Faim Bloquée
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onFoodChange(FoodLevelChangeEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-        Player player = (Player) event.getEntity();
-
-        if (isFFAWorld(player.getWorld())) {
+        if (event.getEntity() instanceof Player && isFFAWorld(event.getEntity().getWorld())) {
             event.setCancelled(true);
-            event.setFoodLevel(20); // Force la bouffe au max
-            player.setFoodLevel(20);
-            player.setSaturation(20f);
+            event.setFoodLevel(20);
         }
     }
 
-    // --- 2. PROTECTION BLOCS (Blindage) ---
+    // 2. Protection "Coup de crosse" (Clic gauche avec arme qui casse la vitre)
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockDamage(BlockDamageEvent event) {
+        if (isFFAWorld(event.getPlayer().getWorld())) {
+            if (!canBuild(event.getPlayer())) {
+                event.setCancelled(true);
+            }
+        }
+    }
 
-    // Joueur casse un bloc
+    // 3. Interactions (Piétinement + Clic Gauche "taper bloc")
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onInteract(PlayerInteractEvent event) {
+        if (isFFAWorld(event.getPlayer().getWorld())) {
+            // Empêcher de taper sur un bloc (Left Click) si on n'est pas builder
+            if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+                if (!canBuild(event.getPlayer())) {
+                    event.setCancelled(true);
+                }
+            }
+            // Empêcher le piétinement des cultures
+            if (event.getAction() == Action.PHYSICAL && event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.FARMLAND) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    // 4. Projectiles & Entités (Balles qui cassent les vitres)
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onEntityChangeBlock(EntityChangeBlockEvent event) {
+        if (isFFAWorld(event.getBlock().getWorld())) {
+            // Annule TOUT changement de bloc par une entité (balle, explosion, enderman)
+            // Sauf si c'est un joueur en build mode
+            if (event.getEntity() instanceof Player) {
+                if (!canBuild((Player) event.getEntity())) {
+                    event.setCancelled(true);
+                }
+            } else {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    // --- PROTECTIONS CLASSIQUES ---
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBreak(BlockBreakEvent event) {
-        if (isFFAWorld(event.getPlayer().getWorld())) {
-            if (!canBuild(event.getPlayer())) {
-                event.setCancelled(true);
-            }
-        }
+        if (isFFAWorld(event.getPlayer().getWorld()) && !canBuild(event.getPlayer())) event.setCancelled(true);
     }
 
-    // Joueur pose un bloc
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlace(BlockPlaceEvent event) {
-        if (isFFAWorld(event.getPlayer().getWorld())) {
-            if (!canBuild(event.getPlayer())) {
-                event.setCancelled(true);
-            }
-        }
+        if (isFFAWorld(event.getPlayer().getWorld()) && !canBuild(event.getPlayer())) event.setCancelled(true);
     }
 
-    // Explosion d'entité (TNT, Creeper, Grenades)
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent event) {
-        if (isFFAWorld(event.getLocation().getWorld())) {
-            event.blockList().clear(); // Aucune destruction
-        }
+        if (isFFAWorld(event.getLocation().getWorld())) event.blockList().clear();
     }
 
-    // Explosion de bloc (Lit)
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent event) {
         if (isFFAWorld(event.getBlock().getWorld())) {
@@ -87,49 +107,19 @@ public class FFAProtectionListener implements Listener {
         }
     }
 
-    // Cadres / Tableaux cassés par une entité (balle, joueur)
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onHangingBreak(HangingBreakByEntityEvent event) {
         if (isFFAWorld(event.getEntity().getWorld())) {
-            if (event.getRemover() instanceof Player) {
-                if (!canBuild((Player) event.getRemover())) event.setCancelled(true);
-            } else {
-                event.setCancelled(true); // Projectiles, explosions...
+            if (!(event.getRemover() instanceof Player) || !canBuild((Player) event.getRemover())) {
+                event.setCancelled(true);
             }
         }
     }
 
-    // Cadres cassés (autres causes)
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onHangingBreakGlobal(HangingBreakEvent event) {
         if (isFFAWorld(event.getEntity().getWorld()) && event.getCause() != HangingBreakEvent.RemoveCause.ENTITY) {
             event.setCancelled(true);
-        }
-    }
-
-    // Piétinement (Farmland)
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onInteract(PlayerInteractEvent event) {
-        if (isFFAWorld(event.getPlayer().getWorld()) && event.getAction() == Action.PHYSICAL && event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.FARMLAND) {
-            event.setCancelled(true);
-        }
-    }
-
-    // ANTI-CASSE PAR PROJECTILES (VItres, Nénuphars, etc.)
-    // C'est cet évent qui gère les balles qui cassent les vitres ou les Endermen
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onEntityChangeBlock(EntityChangeBlockEvent event) {
-        if (isFFAWorld(event.getBlock().getWorld())) {
-            // On annule TOUT changement de bloc venant d'une entité
-            // Sauf si c'est un joueur en build mode (cas rare, généralement joueur = BlockBreakEvent)
-            if (event.getEntity() instanceof Player) {
-                if (!canBuild((Player) event.getEntity())) {
-                    event.setCancelled(true);
-                }
-            } else {
-                // Balle, Flèche, Mob... -> Annulé
-                event.setCancelled(true);
-            }
         }
     }
 }

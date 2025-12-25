@@ -28,28 +28,46 @@ public class SpawnListener implements Listener {
         this.plugin = plugin;
     }
 
-    // --- PROTECTION NOURRITURE ---
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onFoodChange(FoodLevelChangeEvent event) {
-        if (!(event.getEntity() instanceof Player)) return;
-        Player player = (Player) event.getEntity();
-
-        if (player.getWorld().getName().equals("world")) {
+        if (event.getEntity() instanceof Player && event.getEntity().getWorld().getName().equals("world")) {
             event.setCancelled(true);
             event.setFoodLevel(20);
-            player.setFoodLevel(20);
         }
     }
 
-    // --- JOIN / LEAVE / WORLD CHANGE ---
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         if (!player.getWorld().getName().equals("world")) return;
 
         teleportToSpawn(player);
+        // Au join, on setup le lobby, SAUF si le joueur avait quitté en plein FFA (géré par FFA JoinListener)
+        // Mais par sécurité ici on setup.
         setupLobbyPlayer(player);
         plugin.getScoreboardManager().setScoreboard(player);
+    }
+
+    @EventHandler
+    public void onWorldChange(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
+
+        // Si on arrive au Spawn ("world")
+        if (player.getWorld().getName().equals("world")) {
+            plugin.getScoreboardManager().setScoreboard(player);
+
+            // LOGIQUE INVENTAIRE CRITIQUE :
+            // Si on vient du monde "ffa", on ne touche à rien ! Le FFAManager a déjà rendu le stuff.
+            if (event.getFrom().getName().equals("ffa")) {
+                player.setGameMode(GameMode.ADVENTURE);
+                // On s'arrête là. Pas de clear, pas de TNT.
+            } else {
+                // Sinon (vient du Nether, de l'End, d'un autre jeu), on met le stuff Lobby
+                setupLobbyPlayer(player);
+            }
+        } else {
+            plugin.getScoreboardManager().removeScoreboard(player);
+        }
     }
 
     @EventHandler
@@ -58,30 +76,10 @@ public class SpawnListener implements Listener {
     }
 
     @EventHandler
-    public void onWorldChange(PlayerChangedWorldEvent event) {
-        if (event.getPlayer().getWorld().getName().equals("world")) {
-            Player player = event.getPlayer();
-            plugin.getScoreboardManager().setScoreboard(player);
-
-            // CORRECTION CRITIQUE : Vérifie si le joueur vient de quitter le FFA
-            if (player.hasMetadata("JustLeftFFA")) {
-                player.setGameMode(GameMode.ADVENTURE);
-                // On NE TOUCHE PAS à l'inventaire, il a été restauré par le FFA
-            } else {
-                setupLobbyPlayer(player);
-            }
-        } else {
-            plugin.getScoreboardManager().removeScoreboard(event.getPlayer());
-        }
-    }
-
-    @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
         if (event.getRespawnLocation().getWorld().getName().equals("world")) {
             event.setRespawnLocation(getSpawnLocation());
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                setupLobbyPlayer(event.getPlayer());
-            }, 5L);
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> setupLobbyPlayer(event.getPlayer()), 5L);
         }
     }
 
