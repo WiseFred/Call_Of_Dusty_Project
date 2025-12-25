@@ -31,7 +31,7 @@ public class FFAProtectionListener implements Listener {
         return plugin.getCore().getBuildModeManager().isInBuildMode(player);
     }
 
-    // 1. Faim Bloquée
+    // 1. Protection Faim
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onFoodChange(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof Player && isFFAWorld(event.getEntity().getWorld())) {
@@ -40,7 +40,7 @@ public class FFAProtectionListener implements Listener {
         }
     }
 
-    // 2. Protection "Coup de crosse" (Clic gauche avec arme qui casse la vitre)
+    // 2. Protection "Coup de crosse" / Dégâts blocs (CRITIQUE pour les mods d'armes)
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockDamage(BlockDamageEvent event) {
         if (isFFAWorld(event.getPlayer().getWorld())) {
@@ -50,17 +50,17 @@ public class FFAProtectionListener implements Listener {
         }
     }
 
-    // 3. Interactions (Piétinement + Clic Gauche "taper bloc")
+    // 3. Interactions Physiques & Clics
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInteract(PlayerInteractEvent event) {
         if (isFFAWorld(event.getPlayer().getWorld())) {
-            // Empêcher de taper sur un bloc (Left Click) si on n'est pas builder
+            // Empêche le clic gauche (casser) sur un bloc
             if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
                 if (!canBuild(event.getPlayer())) {
                     event.setCancelled(true);
                 }
             }
-            // Empêcher le piétinement des cultures
+            // Piétinement Farmland
             if (event.getAction() == Action.PHYSICAL && event.getClickedBlock() != null && event.getClickedBlock().getType() == Material.FARMLAND) {
                 event.setCancelled(true);
             }
@@ -71,19 +71,15 @@ public class FFAProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityChangeBlock(EntityChangeBlockEvent event) {
         if (isFFAWorld(event.getBlock().getWorld())) {
-            // Annule TOUT changement de bloc par une entité (balle, explosion, enderman)
-            // Sauf si c'est un joueur en build mode
             if (event.getEntity() instanceof Player) {
-                if (!canBuild((Player) event.getEntity())) {
-                    event.setCancelled(true);
-                }
+                if (!canBuild((Player) event.getEntity())) event.setCancelled(true);
             } else {
                 event.setCancelled(true);
             }
         }
     }
 
-    // --- PROTECTIONS CLASSIQUES ---
+    // --- PROTECTIONS STANDARD ---
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBreak(BlockBreakEvent event) {
         if (isFFAWorld(event.getPlayer().getWorld()) && !canBuild(event.getPlayer())) event.setCancelled(true);

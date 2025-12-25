@@ -2,119 +2,26 @@ title: "§8§lArmurerie Call of Dusty"
 size: 54
 
 items:
-  # --- ARMES DE POING (Ligne 1) ---
+  # --- ARMES DE POING ---
   pistol:
     slot: 0
     name: "§7Pistolet"
-    material: IRON_HORSE_ARMOR # Icône
-    item-id: "cgm:pistol"      # Item donné
+    item-config-path: "armes.pistol" # EXEMPLE: path sauvegardé via /itemdb
+    material: IRON_HORSE_ARMOR # Fallback si le path n'existe pas
     price: 100
-    amount: 1
 
-  machine_pistol:
-    slot: 1
-    name: "§fMachine Pistol"
-    material: IRON_HORSE_ARMOR
-    item-id: "cgm:machine_pistol"
-    price: 350
-    amount: 1
-
-  # --- FUSILS & SHOTGUNS (Ligne 2) ---
-  shotgun:
-    slot: 9
-    name: "§eShotgun"
-    material: CROSSBOW
-    item-id: "cgm:shotgun"
-    price: 600
-    amount: 1
-
-  assault_rifle:
-    slot: 10
-    name: "§bAssault Rifle"
-    material: IRON_HORSE_ARMOR
-    item-id: "cgm:assault_rifle"
-    price: 1200
-    amount: 1
-
-  # --- ARMES LOURDES (Ligne 3) ---
-  heavy_rifle:
-    slot: 18
-    name: "§cHeavy Rifle"
-    material: DIAMOND_HORSE_ARMOR
-    item-id: "cgm:heavy_rifle"
-    price: 2500
-    amount: 1
-
-  bazooka:
-    slot: 19
-    name: "§4Bazooka"
-    material: TNT
-    item-id: "cgm:bazooka"
-    price: 5000
-    amount: 1
-
-  # --- MUNITIONS (Ligne 4 - Vitales !) ---
-  ammo_basic:
-    slot: 27
-    name: "§fMunitions Basiques (x32)"
-    material: IRON_NUGGET
-    item-id: "cgm:basic_ammo"
-    price: 50
-    amount: 32
-
-  ammo_advanced:
-    slot: 28
-    name: "§eMunitions Avancées (x16)"
-    material: GOLD_NUGGET
-    item-id: "cgm:advanced_ammo"
-    price: 100
-    amount: 16
-
-  ammo_shell:
-    slot: 29
-    name: "§cCartouches Pompe (x8)"
-    material: BEETROOT_SEEDS
-    item-id: "cgm:shell"
-    price: 80
-    amount: 8
-
-  ammo_missile:
-    slot: 30
-    name: "§4Missile (x1)"
-    material: FIREWORK_ROCKET
-    item-id: "cgm:missile"
-    price: 500
-    amount: 1
-
-  # --- ÉQUIPEMENT & SOIN (Ligne 5) ---
-  medkit:
-    slot: 36
-    name: "§dKit de Soin (Pomme Or)"
-    material: GOLDEN_APPLE
-    item-id: "GOLDEN_APPLE"
-    price: 150
-    amount: 2
-
-  armor_body:
-    slot: 37
-    name: "§bGilet Pare-balles (Fer)"
-    material: IRON_CHESTPLATE
-    item-id: "IRON_CHESTPLATE"
-    price: 400
-    amount: 1
-
-  armor_heavy:
-    slot: 38
-    name: "§3Armure Lourde (Diamant)"
-    material: DIAMOND_CHESTPLATE
-    item-id: "DIAMOND_CHESTPLATE"
-    price: 1500
-    amount: 1
-
+  # --- ÉQUIPEMENT ---
   grenade:
     slot: 39
-    name: "§cGrenade"
+    name: "§cGrenade Frag"
+    item-config-path: "armes.grenade" # METTRE ICI LE PATH DE TA GRENADE
     material: SLIME_BALL
-    item-id: "cgm:grenade"
     price: 200
-    amount: 1
+
+  # --- MUNITIONS ---
+  ammo_basic:
+    slot: 27
+    name: "§fMunitions Basiques"
+    item-config-path: "ammo.basic"
+    material: IRON_NUGGET
+    price: 50

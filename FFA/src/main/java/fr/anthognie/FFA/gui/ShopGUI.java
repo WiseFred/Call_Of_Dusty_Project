@@ -1,5 +1,6 @@
 package fr.anthognie.FFA.gui;
 
+import fr.anthognie.Core.managers.ItemConfigManager;
 import fr.anthognie.FFA.Main;
 import fr.anthognie.FFA.managers.ConfigManager;
 import org.bukkit.Bukkit;
@@ -32,21 +33,42 @@ public class ShopGUI {
     public void open(Player player, boolean adminMode) {
         String title = adminMode ? ADMIN_TITLE : TITLE;
         Inventory inv = Bukkit.createInventory(null, 54, title);
+        ItemConfigManager itemConfig = plugin.getCore().getItemConfigManager();
 
         if (config.getShopConfig().contains("items")) {
             for (String key : config.getShopConfig().getConfigurationSection("items").getKeys(false)) {
                 String path = "items." + key;
-                String matName = config.getShopConfig().getString(path + ".material");
                 int price = config.getShopConfig().getInt(path + ".price");
                 int slot = config.getShopConfig().getInt(path + ".slot");
-                String name = config.getShopConfig().getString(path + ".name");
+                String nameOverride = config.getShopConfig().getString(path + ".name");
 
-                Material mat = Material.getMaterial(matName);
-                if (mat != null) {
-                    ItemStack item = new ItemStack(mat);
+                // 1. Essayer de charger via le Path (ItemDB)
+                String configPath = config.getShopConfig().getString(path + ".item-config-path");
+                ItemStack item = null;
+
+                if (configPath != null) {
+                    item = itemConfig.getItemStack(configPath);
+                }
+
+                // 2. Si pas de path ou introuvable, fallback sur Material
+                if (item == null) {
+                    String matName = config.getShopConfig().getString(path + ".material");
+                    if (matName != null) {
+                        Material mat = Material.getMaterial(matName);
+                        if (mat != null) item = new ItemStack(mat);
+                    }
+                }
+
+                if (item != null) {
+                    // On clone pour ne pas modifier l'original en cache
+                    item = item.clone();
                     ItemMeta meta = item.getItemMeta();
                     if (meta != null) {
-                        meta.setDisplayName(name != null ? name.replace("&", "§") : mat.name());
+                        // Override du nom si défini dans le shop.yml
+                        if (nameOverride != null) {
+                            meta.setDisplayName(nameOverride.replace("&", "§"));
+                        }
+
                         List<String> lore = new ArrayList<>();
                         lore.add("§7Prix: §6" + price + "$");
                         if (adminMode) {
@@ -80,6 +102,7 @@ public class ShopGUI {
         player.openInventory(inv);
     }
 
+    // ... (méthodes addShopItem, removeShopItem, moveShopItem inchangées) ...
     public void addShopItem(ItemStack item, int slot) {
         String key = "item_" + System.currentTimeMillis();
         String path = "items." + key;
